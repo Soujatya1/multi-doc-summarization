@@ -12,7 +12,7 @@ import os
 st.title("Legal Case Summary Generator")
 
 api_key = st.text_input("Enter your OpenAI API Key", type="password")
-st.caption("Your API key should start with 'sk-' and will not be stored")
+st.caption("Your API key")
 
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
 
