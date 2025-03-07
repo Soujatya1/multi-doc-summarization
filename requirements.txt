@@ -1,4 +1,4 @@
-
+langchain-openai
 fpdf
 streamlit
 langchain_community
