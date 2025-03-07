@@ -62,7 +62,7 @@ if summarize_button and uploaded_files and api_key:
                 input_variables=["text"],
                 template="""Create a consolidated overview of the following legal case summaries. 
                 
-                List each case summary in order.
+                Each summary for a document should start with the document name (without extensions like .pdf or .docx). List each case summary in order.
                 Keep the exact formatting from the individual summaries, using bullet points with the "·" character.
                 
                 {text}
