@@ -93,7 +93,7 @@ if summarize_button and uploaded_files and api_key:
                         
                         # Add document name to Word doc
                         doc_heading = doc.add_paragraph()
-                        heading_run = doc_heading.add_run(doc_name)
+                        heading_run = doc_heading.add_run(doc_name.replace("*", ""))
                         heading_run.bold = True
                         heading_run.font.size = Pt(14)
                         
@@ -113,11 +113,12 @@ if summarize_button and uploaded_files and api_key:
                             # Try to find bullet points - this regex looks for lines that start with numbers,
                             # asterisks, hyphens, etc., which are common bullet point markers
                             bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
-                            bullet_points = re.findall(bullet_pattern, pointers_content, re.DOTALL)
+                            bullet_points = re.findall(bullet_pattern, pointers_content)
                             
                             if bullet_points:
-                                # Add each bullet point
-                                for point in bullet_points:
+                                for idx, point in enumerate(bullet_points):
+                                    if idx == 0 and point.strip() == "*":
+                                        continue  # Skip the first point if it's just an asterisk
                                     bullet_para = doc.add_paragraph()
                                     bullet_para.style = 'List Bullet'
                                     bullet_para.add_run(point.strip()).font.size = Pt(11)
