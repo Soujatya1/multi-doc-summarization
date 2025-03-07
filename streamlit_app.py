@@ -39,6 +39,7 @@ if summarize_button and uploaded_files and api_key:
             combine_prompt = PromptTemplate(
                 input_variables=["text"],
                 template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
+                Each summary should have a heading named, "Key Pointers:"
                 Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
                 """
             )
