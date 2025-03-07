@@ -19,7 +19,6 @@ st.caption("Your API key should start with 'sk-' and will not be stored")
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
 
 if uploaded_files and api_key:
-    # Validate API key format
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'")
     else:
@@ -27,7 +26,7 @@ if uploaded_files and api_key:
             llm = ChatOpenAI(
                 openai_api_key=api_key,
                 model_name="gpt-4o-2024-08-06",
-                temperature=0.4,
+                temperature=0.2,
                 top_p=0.2
             )
             
@@ -45,12 +44,10 @@ if uploaded_files and api_key:
             
             with st.spinner("Processing documents..."):
                 for uploaded_file in uploaded_files:
-                    # Show progress for each file
                     file_progress = st.empty()
                     file_progress.text(f"Processing {uploaded_file.name}...")
                     
                     pdf = PdfReader(uploaded_file)
-                    # Extract text
                     text = ''
                     for page in pdf.pages:
                         content = page.extract_text()
@@ -69,11 +66,9 @@ if uploaded_files and api_key:
                         output_summary = map_reduce_chain.invoke(docs)
                         summary = output_summary['output_text']
                         
-                        # Display in UI
                         st.write(f"### Summary for {uploaded_file.name}:")
                         st.write(summary)
                         
-                        # Save to DOCX
                         doc.add_paragraph(uploaded_file.name, style='Heading 1')
                         para = doc.add_paragraph()
                         para.add_run(summary).font.size = Pt(11)
