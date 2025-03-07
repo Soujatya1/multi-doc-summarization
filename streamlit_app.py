@@ -62,8 +62,10 @@ if summarize_button and uploaded_files and api_key:
                 input_variables=["text"],
                 template="""Create a consolidated overview of the following legal case summaries. 
                 
-                Start with the heading "**Consolidated Overview Summary**" and then list each case summary in order.
+                List each case summary in order.
                 Keep the exact formatting from the individual summaries, using bullet points with the "·" character.
+
+                The format of the sections should all be in paragraphs and not bullet points.
                 
                 {text}
                 """
