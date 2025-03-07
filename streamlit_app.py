@@ -32,34 +32,14 @@ if summarize_button and uploaded_files and api_key:
             
             map_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Analyze the following legal case document and extract:
-                
-                1. The case name and citation
-                2. Parties Involved (names of complainant/appellant and respondent)
-                3. Key Events (precise summary of what happened in the case in 5 lines)
-                4. Key Findings (precisely the important rulings or conclusions in 5 lines)
-                
-                Format your response exactly as:
-                
-                **[Case Name and Citation]**
-                · **Parties Involved:** [Names]
-                · **Key Events:** [Summary of events]
-                · **Key Findings:** [Summary of findings]
-                
-                Here is the text to analyze:
-                
-                {text}
+                template="""Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points.\n\n{text}
                 """
             )
             
             combine_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Create a consolidated overview of the following legal case summaries. 
-                
-                Each summary for a document should start with the document name (without extensions like .pdf or .docx). List each case summary in order.
-                Keep the exact formatting from the individual summaries, using bullet points with the "·" character.
-                
-                {text}
+                template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
+                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
                 """
             )
             
