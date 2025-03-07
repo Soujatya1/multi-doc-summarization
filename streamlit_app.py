@@ -9,8 +9,14 @@ from docx.shared import Pt
 import re
 import os
 
-# Same Streamlit UI setup...
+st.title("Legal Case Summary Generator")
 
+api_key = st.text_input("Enter your OpenAI API Key", type="password")
+st.caption("Your API key should start with 'sk-' and will not be stored")
+
+uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
+
+summarize_button = st.button("Summarize")
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'")
@@ -66,25 +72,18 @@ if summarize_button and uploaded_files and api_key:
                         summary = output_summary['output_text']
                         all_summaries.append(summary)
                         
-                        # Display in Streamlit
                         st.write(summary)
                         
-                        # Also add to Word document directly
-                        # Extract document name from the file name
                         doc_name = os.path.splitext(uploaded_file.name)[0]
                         doc_heading = doc.add_paragraph()
                         heading_run = doc_heading.add_run(doc_name)
                         heading_run.bold = True
                         heading_run.font.size = Pt(14)
                         
-                        # Add the "Key Pointers:" heading
                         key_pointers = doc.add_paragraph()
                         pointers_run = key_pointers.add_run("Key Pointers:")
                         pointers_run.bold = True
                         pointers_run.font.size = Pt(12)
-                        
-                        # Extract bullet points - adjust regex based on actual format
-                        # Try to find bullet points (assuming they start with * or - or •)
                         bullet_points = re.findall(r'(?:•|\*|\-)\s+(.*?)(?=(?:•|\*|\-|$))', summary, re.DOTALL)
                         
                         if bullet_points:
@@ -93,11 +92,9 @@ if summarize_button and uploaded_files and api_key:
                                 bullet_para.style = 'List Bullet'
                                 bullet_para.add_run(point.strip()).font.size = Pt(11)
                         else:
-                            # If no bullet points found, just add the raw text
                             text_para = doc.add_paragraph()
                             text_para.add_run(summary.strip()).font.size = Pt(11)
                         
-                        # Add a separator
                         doc.add_paragraph()
                         
                     file_progress.text(f"Completed {uploaded_file.name}")
@@ -105,16 +102,11 @@ if summarize_button and uploaded_files and api_key:
                 if all_summaries:
                     st.write("### Consolidated Overview Summary")
                     
-                    # Add consolidated summary to Word doc
                     heading = doc.add_paragraph()
                     heading_run = heading.add_run("Consolidated Overview Summary")
                     heading_run.bold = True
                     heading_run.font.size = Pt(16)
-                    
-                    # Combine all summaries for the consolidated section
                     consolidated_text = "\n\n".join(all_summaries)
-                    
-                    # Add the consolidated text to the document
                     consol_para = doc.add_paragraph()
                     consol_para.add_run(consolidated_text).font.size = Pt(11)
                         
