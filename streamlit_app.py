@@ -129,14 +129,14 @@ if summarize_button and uploaded_files and api_key:
                         st.write(summary)
                         st.write("---")
                 
-            doc_output_path = "document_summaries.docx"
+            doc_output_path = "circulars_consolidated_summary.docx"
             doc.save(doc_output_path)
             
             with open(doc_output_path, "rb") as doc_file:
                 st.download_button(
                     "Download Summaries DOCX",
                     doc_file,
-                    file_name="document_summaries.docx",
+                    file_name="circulars_consolidated_summary.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
                 
