@@ -5,7 +5,8 @@ from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
 from docx import Document as DocxDocument
-from docx.shared import Pt, RGBColor
+from docx.shared import Pt
+import re
 import os
 
 # Set title
@@ -105,14 +106,37 @@ if summarize_button and uploaded_files and api_key:
                 if all_summaries:
                     st.write("### Consolidated Overview Summary")
                     
-                    # Add to Word document with formatting
+                    # Add main heading to Word document with formatting
                     heading = doc.add_paragraph()
-                    run = heading.add_run("Consolidated Overview Summary")
-                    run.bold = True
-                    run.font.size = Pt(14)
+                    heading_run = heading.add_run("Consolidated Overview Summary")
+                    heading_run.bold = True
+                    heading_run.font.size = Pt(16)
                     
+                    # Add each summary with proper formatting
                     for summary in all_summaries:
-                        doc.add_paragraph(summary)
+                        # Parse the summary to properly format in Word
+                        # First, find the case name/citation (main heading)
+                        case_title_match = re.search(r'\*\*(.*?)\*\*', summary)
+                        if case_title_match:
+                            case_title = case_title_match.group(1)
+                            # Add case title as a bold heading
+                            case_heading = doc.add_paragraph()
+                            case_run = case_heading.add_run(case_title)
+                            case_run.bold = True
+                            case_run.font.size = Pt(14)
+                            
+                            # Process bullet points
+                            bullet_sections = re.findall(r'·\s+\*\*(.*?):\*\*\s+(.*?)(?=(?:·\s+\*\*|$))', summary, re.DOTALL)
+                            for section_title, section_content in bullet_sections:
+                                bullet_para = doc.add_paragraph()
+                                bullet_para.add_run('· ').font.size = Pt(11)
+                                title_run = bullet_para.add_run(f"{section_title}: ")
+                                title_run.bold = True
+                                title_run.font.size = Pt(11)
+                                content_run = bullet_para.add_run(section_content.strip())
+                                content_run.font.size = Pt(11)
+                        
+                        # Show in Streamlit
                         st.write(summary)
                         st.write("---")
                 
