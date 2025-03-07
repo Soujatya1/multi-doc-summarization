@@ -64,8 +64,6 @@ if summarize_button and uploaded_files and api_key:
                 
                 List each case summary in order.
                 Keep the exact formatting from the individual summaries, using bullet points with the "·" character.
-
-                The format of the sections should all be in paragraphs and not bullet points.
                 
                 {text}
                 """
