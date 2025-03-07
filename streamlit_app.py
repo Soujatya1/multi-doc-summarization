@@ -41,8 +41,8 @@ if summarize_button and uploaded_files and api_key:
                 
                 1. The case name and citation
                 2. Parties Involved (names of complainant/appellant and respondent)
-                3. Key Events (precise summary of what happened in the case)
-                4. Key Findings (precisely the important rulings or conclusions)
+                3. Key Events (precise summary of what happened in the case in 5 lines)
+                4. Key Findings (precisely the important rulings or conclusions in 5 lines)
                 
                 Format your response exactly as:
                 
