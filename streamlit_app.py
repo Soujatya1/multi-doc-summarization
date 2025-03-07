@@ -26,7 +26,7 @@ if uploaded_files and api_key:
         try:
             llm = ChatOpenAI(
                 openai_api_key=api_key,
-                model_name="gpt-4",
+                model_name="gpt-4o-2024-05-13",
                 temperature=0.4,
                 top_p=0.2
             )
