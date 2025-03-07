@@ -112,7 +112,7 @@ if summarize_button and uploaded_files and api_key:
                             
                             # Try to find bullet points - this regex looks for lines that start with numbers,
                             # asterisks, hyphens, etc., which are common bullet point markers
-                            bullet_pattern = r'(?:^|\n)(?:\d+\.|\*|\-|\•)\s*(.*?)(?=(?:\n(?:\d+\.|\*|\-|\•)|\Z))'
+                            bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
                             bullet_points = re.findall(bullet_pattern, pointers_content, re.DOTALL)
                             
                             if bullet_points:
