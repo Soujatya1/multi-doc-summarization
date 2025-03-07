@@ -17,6 +17,7 @@ st.caption("Your API key should start with 'sk-' and will not be stored")
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
 
 summarize_button = st.button("Summarize")
+
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'")
@@ -72,30 +73,8 @@ if summarize_button and uploaded_files and api_key:
                         summary = output_summary['output_text']
                         all_summaries.append(summary)
                         
+                        # Display in Streamlit
                         st.write(summary)
-                        
-                        doc_name = os.path.splitext(uploaded_file.name)[0]
-                        doc_heading = doc.add_paragraph()
-                        heading_run = doc_heading.add_run(doc_name)
-                        heading_run.bold = True
-                        heading_run.font.size = Pt(14)
-                        
-                        key_pointers = doc.add_paragraph()
-                        pointers_run = key_pointers.add_run("Key Pointers:")
-                        pointers_run.bold = True
-                        pointers_run.font.size = Pt(12)
-                        bullet_points = re.findall(r'(?:•|\*|\-)\s+(.*?)(?=(?:•|\*|\-|$))', summary, re.DOTALL)
-                        
-                        if bullet_points:
-                            for point in bullet_points:
-                                bullet_para = doc.add_paragraph()
-                                bullet_para.style = 'List Bullet'
-                                bullet_para.add_run(point.strip()).font.size = Pt(11)
-                        else:
-                            text_para = doc.add_paragraph()
-                            text_para.add_run(summary.strip()).font.size = Pt(11)
-                        
-                        doc.add_paragraph()
                         
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
@@ -106,20 +85,70 @@ if summarize_button and uploaded_files and api_key:
                     heading_run = heading.add_run("Consolidated Overview Summary")
                     heading_run.bold = True
                     heading_run.font.size = Pt(16)
-                    consolidated_text = "\n\n".join(all_summaries)
-                    consol_para = doc.add_paragraph()
-                    consol_para.add_run(consolidated_text).font.size = Pt(11)
+                    
+                    for summary in all_summaries:
+                        # Extract document name (first line of the summary)
+                        lines = summary.strip().split('\n')
+                        doc_name = lines[0] if lines else "Document"
                         
-                    st.write("---")
+                        # Add document name to Word doc
+                        doc_heading = doc.add_paragraph()
+                        heading_run = doc_heading.add_run(doc_name)
+                        heading_run.bold = True
+                        heading_run.font.size = Pt(14)
+                        
+                        # Find "Key Pointers:" section
+                        key_pointers_match = re.search(r'Key Pointers:', summary)
+                        if key_pointers_match:
+                            # Add "Key Pointers:" heading
+                            pointers_heading = doc.add_paragraph()
+                            pointers_run = pointers_heading.add_run("Key Pointers:")
+                            pointers_run.bold = True
+                            pointers_run.font.size = Pt(12)
+                            
+                            # Extract the content after "Key Pointers:"
+                            pointers_start = key_pointers_match.end()
+                            pointers_content = summary[pointers_start:].strip()
+                            
+                            # Try to find bullet points - this regex looks for lines that start with numbers,
+                            # asterisks, hyphens, etc., which are common bullet point markers
+                            bullet_pattern = r'(?:^|\n)(?:\d+\.|\*|\-|\•)\s*(.*?)(?=(?:\n(?:\d+\.|\*|\-|\•)|\Z))'
+                            bullet_points = re.findall(bullet_pattern, pointers_content, re.DOTALL)
+                            
+                            if bullet_points:
+                                # Add each bullet point
+                                for point in bullet_points:
+                                    bullet_para = doc.add_paragraph()
+                                    bullet_para.style = 'List Bullet'
+                                    bullet_para.add_run(point.strip()).font.size = Pt(11)
+                            else:
+                                # If no bullet points found with regex, just add the content as paragraphs
+                                for line in pointers_content.split('\n'):
+                                    if line.strip():
+                                        para = doc.add_paragraph()
+                                        para.add_run(line.strip()).font.size = Pt(11)
+                        else:
+                            # If "Key Pointers:" not found, add all content after the first line
+                            remaining_content = '\n'.join(lines[1:]) if len(lines) > 1 else ""
+                            if remaining_content:
+                                content_para = doc.add_paragraph()
+                                content_para.add_run(remaining_content).font.size = Pt(11)
+                        
+                        # Add a separator
+                        doc.add_paragraph()
+                        
+                        # Display in Streamlit
+                        st.write(summary)
+                        st.write("---")
                 
-            doc_output_path = "circulars.docx"
+            doc_output_path = "document_summaries.docx"
             doc.save(doc_output_path)
             
             with open(doc_output_path, "rb") as doc_file:
                 st.download_button(
                     "Download Summaries DOCX",
                     doc_file,
-                    file_name="circulars.docx",
+                    file_name="document_summaries.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
                 
