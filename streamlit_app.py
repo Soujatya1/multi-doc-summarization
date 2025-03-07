@@ -9,14 +9,7 @@ from docx.shared import Pt
 import re
 import os
 
-st.title("Legal Case Summary Generator")
-
-api_key = st.text_input("Enter your OpenAI API Key", type="password")
-st.caption("Your API key should start with 'sk-' and will not be stored")
-
-uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
-
-summarize_button = st.button("Summarize")
+# Same Streamlit UI setup...
 
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
@@ -73,47 +66,68 @@ if summarize_button and uploaded_files and api_key:
                         summary = output_summary['output_text']
                         all_summaries.append(summary)
                         
+                        # Display in Streamlit
                         st.write(summary)
+                        
+                        # Also add to Word document directly
+                        # Extract document name from the file name
+                        doc_name = os.path.splitext(uploaded_file.name)[0]
+                        doc_heading = doc.add_paragraph()
+                        heading_run = doc_heading.add_run(doc_name)
+                        heading_run.bold = True
+                        heading_run.font.size = Pt(14)
+                        
+                        # Add the "Key Pointers:" heading
+                        key_pointers = doc.add_paragraph()
+                        pointers_run = key_pointers.add_run("Key Pointers:")
+                        pointers_run.bold = True
+                        pointers_run.font.size = Pt(12)
+                        
+                        # Extract bullet points - adjust regex based on actual format
+                        # Try to find bullet points (assuming they start with * or - or •)
+                        bullet_points = re.findall(r'(?:•|\*|\-)\s+(.*?)(?=(?:•|\*|\-|$))', summary, re.DOTALL)
+                        
+                        if bullet_points:
+                            for point in bullet_points:
+                                bullet_para = doc.add_paragraph()
+                                bullet_para.style = 'List Bullet'
+                                bullet_para.add_run(point.strip()).font.size = Pt(11)
+                        else:
+                            # If no bullet points found, just add the raw text
+                            text_para = doc.add_paragraph()
+                            text_para.add_run(summary.strip()).font.size = Pt(11)
+                        
+                        # Add a separator
+                        doc.add_paragraph()
                         
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
                 if all_summaries:
                     st.write("### Consolidated Overview Summary")
                     
+                    # Add consolidated summary to Word doc
                     heading = doc.add_paragraph()
                     heading_run = heading.add_run("Consolidated Overview Summary")
                     heading_run.bold = True
                     heading_run.font.size = Pt(16)
                     
-                    for summary in all_summaries:
-                        case_title_match = re.search(r'\*\*(.*?)\*\*', summary)
-                        if case_title_match:
-                            case_title = case_title_match.group(1)
-                            case_heading = doc.add_paragraph()
-                            case_run = case_heading.add_run(case_title)
-                            case_run.bold = True
-                            case_run.font.size = Pt(14)
-                            bullet_sections = re.findall(r'·\s+\*\*(.*?):\*\*\s+(.*?)(?=(?:·\s+\*\*|$))', summary, re.DOTALL)
-                            for section_title, section_content in bullet_sections:
-                                bullet_para = doc.add_paragraph()
-                                bullet_para.add_run('· ').font.size = Pt(11)
-                                title_run = bullet_para.add_run(f"{section_title}: ")
-                                title_run.bold = True
-                                title_run.font.size = Pt(11)
-                                content_run = bullet_para.add_run(section_content.strip())
-                                content_run.font.size = Pt(11)
+                    # Combine all summaries for the consolidated section
+                    consolidated_text = "\n\n".join(all_summaries)
+                    
+                    # Add the consolidated text to the document
+                    consol_para = doc.add_paragraph()
+                    consol_para.add_run(consolidated_text).font.size = Pt(11)
                         
-                        st.write(summary)
-                        st.write("---")
+                    st.write("---")
                 
-            doc_output_path = "legal_case_summaries.docx"
+            doc_output_path = "circulars.docx"
             doc.save(doc_output_path)
             
             with open(doc_output_path, "rb") as doc_file:
                 st.download_button(
                     "Download Summaries DOCX",
                     doc_file,
-                    file_name="legal_case_summaries.docx",
+                    file_name="circulars.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
                 
