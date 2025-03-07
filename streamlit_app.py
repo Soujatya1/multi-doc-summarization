@@ -87,58 +87,45 @@ if summarize_button and uploaded_files and api_key:
                     heading_run.font.size = Pt(16)
                     
                     for summary in all_summaries:
-                        # Extract document name (first line of the summary)
                         lines = summary.strip().split('\n')
                         doc_name = lines[0] if lines else "Document"
                         
-                        # Add document name to Word doc
                         doc_heading = doc.add_paragraph()
                         heading_run = doc_heading.add_run(doc_name.replace("*", ""))
                         heading_run.bold = True
                         heading_run.font.size = Pt(14)
                         
-                        # Find "Key Pointers:" section
                         key_pointers_match = re.search(r'Key Pointers:', summary)
                         if key_pointers_match:
-                            # Add "Key Pointers:" heading
                             pointers_heading = doc.add_paragraph()
                             pointers_run = pointers_heading.add_run("Key Pointers:")
                             pointers_run.bold = True
                             pointers_run.font.size = Pt(12)
-                            
-                            # Extract the content after "Key Pointers:"
                             pointers_start = key_pointers_match.end()
                             pointers_content = summary[pointers_start:].strip()
-                            
-                            # Try to find bullet points - this regex looks for lines that start with numbers,
-                            # asterisks, hyphens, etc., which are common bullet point markers
                             bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
                             bullet_points = re.findall(bullet_pattern, pointers_content)
                             
                             if bullet_points:
                                 for idx, point in enumerate(bullet_points):
                                     if idx == 0 and point.strip() == "*":
-                                        continue  # Skip the first point if it's just an asterisk
+                                        continue
                                     bullet_para = doc.add_paragraph()
                                     bullet_para.style = 'List Bullet'
                                     bullet_para.add_run(point.strip()).font.size = Pt(11)
                             else:
-                                # If no bullet points found with regex, just add the content as paragraphs
                                 for line in pointers_content.split('\n'):
                                     if line.strip():
                                         para = doc.add_paragraph()
                                         para.add_run(line.strip()).font.size = Pt(11)
                         else:
-                            # If "Key Pointers:" not found, add all content after the first line
                             remaining_content = '\n'.join(lines[1:]) if len(lines) > 1 else ""
                             if remaining_content:
                                 content_para = doc.add_paragraph()
                                 content_para.add_run(remaining_content).font.size = Pt(11)
                         
-                        # Add a separator
                         doc.add_paragraph()
                         
-                        # Display in Streamlit
                         st.write(summary)
                         st.write("---")
                 
