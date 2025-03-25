@@ -8,3 +8,4 @@ PyPDF2
 pypdf
 python-docx
 transformers
+langdetect
