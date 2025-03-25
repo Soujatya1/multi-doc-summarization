@@ -25,7 +25,7 @@ if summarize_button and uploaded_files and api_key:
         try:
             llm = ChatOpenAI(
                 openai_api_key=api_key,
-                model_name="gpt-3.5-turbo-16k",
+                model_name="gpt-4o-2024-08-06",
                 temperature=0.2,
                 top_p=0.2
             )
