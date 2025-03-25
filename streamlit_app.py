@@ -64,10 +64,7 @@ if summarize_button and uploaded_files and api_key:
             
             map_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Read and summarize the following content chunk in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 10 bullet points.
-                Each summary for a document should start with the document name (without extensions like .pdf or .docx).
-                Each summary should have a heading named, "Key Pointers:"
-                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
+                template="""Read and summarize the following content chunk in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 10 bullet points.\n\n{text}
                 """
             )
             
@@ -75,9 +72,9 @@ if summarize_button and uploaded_files and api_key:
                 input_variables=["text"],
                 template="""
                 Combine the following individual chunk summaries into a cohesive, insightful summary for the entire document. Ensure that it captures the core themes and purpose across all chunks in 15 bullet points:
-                
-                Key Themes and Insights:
-                \n\n{text}
+                Each summary for a document should start with the document name (without extensions like .pdf or .docx).
+                Each summary should have a heading named, "Key Pointers:"
+                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
                 """
             )
             
