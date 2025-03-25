@@ -9,7 +9,7 @@ from docx.shared import Pt
 import re
 import os
 
-st.title("Legal Case Summary Generator")
+st.title("Circulars Summary Generator")
 
 api_key = st.text_input("Enter your OpenAI API Key", type="password")
 st.caption("Your API key should start with 'sk-' and will not be stored")
@@ -32,34 +32,15 @@ if summarize_button and uploaded_files and api_key:
             
             map_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Analyze the following legal case document and extract:
-                
-                1. The case name and citation
-                2. Parties Involved (names of complainant/appellant and respondent)
-                3. Issues before the Court (precise summary of what happened in the case in 5 lines)
-                4. Observation/ Decision of the Court (precisely the important rulings or conclusions in 5 lines)
-                
-                Format your response exactly as:
-                
-                **[Case Name and Citation]**
-                · **Parties Involved:** [Names]
-                · **Issues before the Court:** [Summary of events]
-                · **Observation/ Decision of the Court:** [Summary of findings]
-                
-                Here is the text to analyze:
-                
-                {text}
+                template="""Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points.\n\n{text}
                 """
             )
             
             combine_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Create a consolidated overview of the following legal case summaries. 
-                
-                Each summary for a document should start with the document name (without extensions like .pdf or .docx). List each case summary in order.
-                Keep the exact formatting from the individual summaries, using bullet points with the "·" character.
-                
-                {text}
+                template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
+                Each summary should have a heading named, "Key Pointers:"
+                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
                 """
             )
             
@@ -105,34 +86,56 @@ if summarize_button and uploaded_files and api_key:
                     heading_run.font.size = Pt(16)
                     
                     for summary in all_summaries:
-                        case_title_match = re.search(r'\*\*(.*?)\*\*', summary)
-                        if case_title_match:
-                            case_title = case_title_match.group(1)
-                            case_heading = doc.add_paragraph()
-                            case_run = case_heading.add_run(case_title)
-                            case_run.bold = True
-                            case_run.font.size = Pt(14)
-                            bullet_sections = re.findall(r'·\s+\*\*(.*?):\*\*\s+(.*?)(?=(?:·\s+\*\*|$))', summary, re.DOTALL)
-                            for section_title, section_content in bullet_sections:
-                                bullet_para = doc.add_paragraph()
-                                bullet_para.add_run('· ').font.size = Pt(11)
-                                title_run = bullet_para.add_run(f"{section_title}: ")
-                                title_run.bold = True
-                                title_run.font.size = Pt(11)
-                                content_run = bullet_para.add_run(section_content.strip())
-                                content_run.font.size = Pt(11)
+                        lines = summary.strip().split('\n')
+                        doc_name = lines[0] if lines else "Document"
+                        
+                        doc_heading = doc.add_paragraph()
+                        heading_run = doc_heading.add_run(doc_name.replace("*", ""))
+                        heading_run.bold = True
+                        heading_run.font.size = Pt(14)
+                        
+                        key_pointers_match = re.search(r'Key Pointers:', summary)
+                        if key_pointers_match:
+                            pointers_heading = doc.add_paragraph()
+                            pointers_run = pointers_heading.add_run("Key Pointers:")
+                            pointers_run.bold = True
+                            pointers_run.font.size = Pt(12)
+                            pointers_start = key_pointers_match.end()
+                            pointers_content = summary[pointers_start:].strip()
+                            bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
+                            bullet_points = re.findall(bullet_pattern, pointers_content)
+                            
+                            if bullet_points:
+                                for idx, point in enumerate(bullet_points):
+                                    if idx == 0 and point.strip() == "*":
+                                        continue
+                                    bullet_para = doc.add_paragraph()
+                                    bullet_para.style = 'List Bullet'
+                                    bullet_para.add_run(point.strip()).font.size = Pt(11)
+                            else:
+                                for line in pointers_content.split('\n'):
+                                    if line.strip():
+                                        para = doc.add_paragraph()
+                                        para.add_run(line.strip()).font.size = Pt(11)
+                        else:
+                            remaining_content = '\n'.join(lines[1:]) if len(lines) > 1 else ""
+                            if remaining_content:
+                                content_para = doc.add_paragraph()
+                                content_para.add_run(remaining_content).font.size = Pt(11)
+                        
+                        doc.add_paragraph()
                         
                         st.write(summary)
                         st.write("---")
                 
-            doc_output_path = "legal_case_summaries.docx"
+            doc_output_path = "circulars_consolidated_summary.docx"
             doc.save(doc_output_path)
             
             with open(doc_output_path, "rb") as doc_file:
                 st.download_button(
                     "Download Summaries DOCX",
                     doc_file,
-                    file_name="legal_case_summaries.docx",
+                    file_name="circulars_consolidated_summary.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
                 
