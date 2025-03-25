@@ -8,6 +8,7 @@ from docx import Document as DocxDocument
 from docx.shared import Pt
 import re
 import os
+import langdetect
 
 st.title("Circulars Summary Generator")
 
@@ -17,6 +18,25 @@ st.caption("Your API key should start with 'sk-' and will not be stored")
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
 
 summarize_button = st.button("Summarize")
+
+def is_english(text, min_confidence=0.7):
+    """
+    Check if the text is primarily in English
+    
+    Args:
+        text (str): Input text to detect language
+        min_confidence (float): Minimum confidence threshold for English detection
+    
+    Returns:
+        bool: True if text is in English, False otherwise
+    """
+    try:
+        # Detect language of the first 1000 characters to reduce processing time
+        detected_lang = langdetect.detect(text[:1000])
+        return detected_lang == 'en'
+    except Exception:
+        # If language detection fails, fallback to English
+        return True
 
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
@@ -48,6 +68,7 @@ if summarize_button and uploaded_files and api_key:
             
             with st.spinner("Processing documents..."):
                 all_summaries = []
+                non_english_files = []
                 
                 for uploaded_file in uploaded_files:
                     file_progress = st.empty()
@@ -59,7 +80,13 @@ if summarize_button and uploaded_files and api_key:
                         content = page.extract_text()
                         if content:
                             text += content + "\n"
-                            
+                    
+                    # Check if the document is in English
+                    if not is_english(text):
+                        non_english_files.append(uploaded_file.name)
+                        file_progress.text(f"Skipped {uploaded_file.name} - Not in English")
+                        continue
+                    
                     if text.strip():
                         docs = [Document(page_content=text)]
                         map_reduce_chain = load_summarize_chain(
@@ -76,6 +103,10 @@ if summarize_button and uploaded_files and api_key:
                         st.write(summary)
                         
                     file_progress.text(f"Completed {uploaded_file.name}")
+                
+                # Display non-English files warning
+                if non_english_files:
+                    st.warning(f"The following files were skipped as they are not in English: {', '.join(non_english_files)}")
                 
                 if all_summaries:
                     st.write("### Consolidated Overview Summary")
