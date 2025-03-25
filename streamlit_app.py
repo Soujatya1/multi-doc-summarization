@@ -19,51 +19,38 @@ uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multipl
 
 summarize_button = st.button("Summarize")
 
-def is_english(text, min_characters=500, min_english_ratio=0.8):
+def extract_english_text(text):
     """
-    Comprehensive language detection for English text
+    Extract only English words from the given text
     
     Args:
-        text (str): Input text to detect language
-        min_characters (int): Minimum number of characters to analyze
-        min_english_ratio (float): Minimum ratio of English confidence
+        text (str): Input text to filter
     
     Returns:
-        bool: True if text is predominantly English, False otherwise
+        str: Text containing only English words
     """
-    # Remove whitespace and newlines
-    clean_text = text.strip()
-    
-    # Check if text is long enough to analyze
-    if len(clean_text) < min_characters:
-        return False
-    
     try:
-        # Attempt to detect language for the whole text
-        language_probabilities = {}
-        total_length = len(clean_text)
+        # Use regex to split text into words
+        words = re.findall(r'\b\w+\b', text)
         
-        # Analyze text in chunks to get more comprehensive language detection
-        chunk_size = 1000
-        for i in range(0, total_length, chunk_size):
-            chunk = clean_text[i:i+chunk_size]
+        # Filter words and keep only those detected as English
+        english_words = []
+        for word in words:
             try:
-                lang = langdetect.detect(chunk)
-                language_probabilities[lang] = language_probabilities.get(lang, 0) + len(chunk)
+                # Only consider words longer than 1 character
+                if len(word) > 1:
+                    lang = langdetect.detect(word)
+                    if lang == 'en':
+                        english_words.append(word)
             except langdetect.lang_detect_exception.LangDetectException:
                 continue
         
-        # Calculate language ratios
-        total_analyzed = sum(language_probabilities.values())
-        language_ratios = {lang: count/total_analyzed for lang, count in language_probabilities.items()}
-        
-        # Check if English is the predominant language
-        english_ratio = language_ratios.get('en', 0)
-        return english_ratio >= min_english_ratio
+        # Reconstruct text with only English words
+        return ' '.join(english_words)
     
     except Exception as e:
-        st.warning(f"Language detection error: {e}")
-        return False
+        st.warning(f"Language filtering error: {e}")
+        return text  # Fallback to original text if filtering fails
 
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
@@ -95,7 +82,7 @@ if summarize_button and uploaded_files and api_key:
             
             with st.spinner("Processing documents..."):
                 all_summaries = []
-                non_english_files = []
+                partially_filtered_files = []
                 
                 for uploaded_file in uploaded_files:
                     file_progress = st.empty()
@@ -108,35 +95,37 @@ if summarize_button and uploaded_files and api_key:
                         if content:
                             text += content + "\n"
                     
-                    # Check if the document is in English
-                    if not is_english(text):
-                        non_english_files.append(uploaded_file.name)
-                        file_progress.text(f"Skipped {uploaded_file.name} - Not in English")
+                    # Extract only English text
+                    filtered_text = extract_english_text(text)
+                    
+                    # Check if any meaningful text remains after filtering
+                    if not filtered_text.strip():
+                        st.warning(f"No English text found in {uploaded_file.name}")
                         continue
                     
-                    if text.strip():
-                        docs = [Document(page_content=text)]
-                        map_reduce_chain = load_summarize_chain(
-                            llm,
-                            chain_type="map_reduce",
-                            map_prompt=map_prompt,
-                            combine_prompt=combine_prompt
-                        )
-                        
-                        output_summary = map_reduce_chain.invoke(docs)
-                        summary = output_summary['output_text']
-                        all_summaries.append(summary)
-                        
-                        st.write(summary)
-                        
+                    # Track if text was partially filtered
+                    if len(filtered_text) < len(text) * 0.5:
+                        partially_filtered_files.append(uploaded_file.name)
+                    
+                    docs = [Document(page_content=filtered_text)]
+                    map_reduce_chain = load_summarize_chain(
+                        llm,
+                        chain_type="map_reduce",
+                        map_prompt=map_prompt,
+                        combine_prompt=combine_prompt
+                    )
+                    
+                    output_summary = map_reduce_chain.invoke(docs)
+                    summary = output_summary['output_text']
+                    all_summaries.append(summary)
+                    
+                    st.write(summary)
+                    
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
-                # Display non-English files warning
-                if non_english_files:
-                    st.warning(f"The following files were skipped as they are not in English: {', '.join(non_english_files)}")
-                
-                # Rest of the code remains the same as in the previous version
-                # ... (omitted for brevity, same as previous implementation)
+                # Display partially filtered files warning
+                if partially_filtered_files:
+                    st.warning(f"The following files had significant non-English content and were partially filtered: {', '.join(partially_filtered_files)}")
                 
         except Exception as e:
             st.error(f"Error: {str(e)}")
