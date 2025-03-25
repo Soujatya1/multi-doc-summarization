@@ -14,8 +14,6 @@ import langdetect
 st.title("Circulars Summary Generator")
 
 api_key = st.text_input("Enter your OpenAI API Key", type="password")
-st.caption("Your API key should start with 'sk-' and will not be stored")
-
 uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multiple_files=True)
 
 summarize_button = st.button("Summarize")
@@ -78,15 +76,13 @@ if summarize_button and uploaded_files and api_key:
                 """
             )
             
-            # Create Word document for summaries
             doc = DocxDocument()
             
-            # Add Consolidated Overview Summary header
             consolidated_overview_heading = doc.add_paragraph()
             consolidated_overview_run = consolidated_overview_heading.add_run("Consolidated Overview Summary")
             consolidated_overview_run.bold = True
             consolidated_overview_run.font.size = Pt(16)
-            doc.add_paragraph()  # Add an empty line after header
+            doc.add_paragraph()
             
             with st.spinner("Processing documents"):
                 all_document_summaries = []
@@ -123,10 +119,8 @@ if summarize_button and uploaded_files and api_key:
                     output_summary = map_reduce_chain.invoke(docs)
                     summary = output_summary['output_text']
                     
-                    # Add to Word document with formatting similar to base code
                     document_name = uploaded_file.name.replace(".pdf", "")
                     
-                    # Add bold document name
                     doc_heading = doc.add_paragraph()
                     heading_run = doc_heading.add_run(f"Document Name: {document_name}")
                     heading_run.bold = True
@@ -137,7 +131,6 @@ if summarize_button and uploaded_files and api_key:
                     key_pointers_run.bold = True
                     key_pointers_run.font.size = Pt(12)
                     
-                    # Parse and extract bullet points
                     bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
                     bullet_points = re.findall(bullet_pattern, summary)
                     
@@ -147,13 +140,11 @@ if summarize_button and uploaded_files and api_key:
                             bullet_para.style = 'List Bullet'
                             bullet_para.add_run(point.strip()).font.size = Pt(11)
                     else:
-                        # Fallback if no bullet points found
                         for line in summary.split('\n'):
                             if line.strip():
                                 para = doc.add_paragraph()
                                 para.add_run(line.strip()).font.size = Pt(11)
                     
-                    # Add a separator
                     doc.add_paragraph()
                     
                     full_summary = f"Document Name: {document_name}\n\nKey Pointers:\n{summary}"
@@ -163,9 +154,8 @@ if summarize_button and uploaded_files and api_key:
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
                 if partially_filtered_files:
-                    st.warning(f"The following files had significant non-English content and were partially filtered: {', '.join(partially_filtered_files)}")
+                    st.warning(f"Non-English content filtered: {', '.join(partially_filtered_files)}")
                 
-                # Save and provide download for Word document
                 doc_output_path = "circulars_consolidated_summary.docx"
                 doc.save(doc_output_path)
                 
