@@ -3,6 +3,7 @@ from PyPDF2 import PdfReader
 from langchain.docstore.document import Document
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
 from docx import Document as DocxDocument
 from docx.shared import Pt
@@ -52,6 +53,27 @@ def extract_english_text(text):
         st.warning(f"Language filtering error: {e}")
         return text  # Fallback to original text if filtering fails
 
+def chunk_document(text, chunk_size=4000, chunk_overlap=500):
+    """
+    Split document into manageable chunks
+    
+    Args:
+        text (str): Input text to chunk
+        chunk_size (int): Maximum number of characters per chunk
+        chunk_overlap (int): Number of characters to overlap between chunks
+    
+    Returns:
+        list: List of text chunks
+    """
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    
+    return text_splitter.split_text(text)
+
 if summarize_button and uploaded_files and api_key:
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'")
@@ -66,22 +88,21 @@ if summarize_button and uploaded_files and api_key:
             
             map_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points.\n\n{text}
+                template="""Read and summarize the following content chunk in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 10 bullet points.\n\n{text}
                 """
             )
             
             combine_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
-                Each summary should have a heading named, "Key Pointers:"
-                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
+                template="""Combine the following individual chunk summaries into a cohesive, insightful summary for the entire document. Ensure that it captures the core themes and purpose across all chunks in 15 bullet points:
+                
+                Key Themes and Insights:
+                \n\n{text}
                 """
             )
             
-            doc = DocxDocument()
-            
             with st.spinner("Processing documents..."):
-                all_summaries = []
+                all_document_summaries = []
                 partially_filtered_files = []
                 
                 for uploaded_file in uploaded_files:
@@ -107,7 +128,13 @@ if summarize_button and uploaded_files and api_key:
                     if len(filtered_text) < len(text) * 0.5:
                         partially_filtered_files.append(uploaded_file.name)
                     
-                    docs = [Document(page_content=filtered_text)]
+                    # Chunk the filtered text
+                    text_chunks = chunk_document(filtered_text)
+                    
+                    # Convert chunks to Langchain Documents
+                    docs = [Document(page_content=chunk) for chunk in text_chunks]
+                    
+                    # Process chunks with map-reduce summarization
                     map_reduce_chain = load_summarize_chain(
                         llm,
                         chain_type="map_reduce",
@@ -117,9 +144,12 @@ if summarize_button and uploaded_files and api_key:
                     
                     output_summary = map_reduce_chain.invoke(docs)
                     summary = output_summary['output_text']
-                    all_summaries.append(summary)
                     
-                    st.write(summary)
+                    # Add document name to summary
+                    full_summary = f"Summary of {uploaded_file.name}:\n\n{summary}"
+                    
+                    all_document_summaries.append(full_summary)
+                    st.write(full_summary)
                     
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
