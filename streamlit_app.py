@@ -116,25 +116,39 @@ if summarize_button and uploaded_files and api_key:
                     output_summary = map_reduce_chain.invoke(docs)
                     summary = output_summary['output_text']
                     
-                    full_summary = f"Summary of {uploaded_file.name}:\n\n{summary}"
+                    # Add to Word document with formatting similar to base code
+                    document_name = uploaded_file.name.replace(".pdf", "")
                     
-                    # Add to Word document
-                    heading = doc.add_paragraph()
-                    heading_run = heading.add_run(f"Summary of {uploaded_file.name}")
+                    doc_heading = doc.add_paragraph()
+                    heading_run = doc_heading.add_run(document_name)
                     heading_run.bold = True
-                    heading_run.font.size = Pt(16)
+                    heading_run.font.size = Pt(14)
                     
-                    # Parse and add summary to document
-                    summary_lines = summary.split('\n')
-                    for line in summary_lines:
-                        line = line.strip()
-                        if line:
-                            para = doc.add_paragraph()
-                            para.add_run(line).font.size = Pt(11)
+                    key_pointers_heading = doc.add_paragraph()
+                    key_pointers_run = key_pointers_heading.add_run("Key Pointers:")
+                    key_pointers_run.bold = True
+                    key_pointers_run.font.size = Pt(12)
+                    
+                    # Parse and extract bullet points
+                    bullet_pattern = r'(?m)^(?:\d+\.\s+|\•\s+|\-\s+|\*\s+)(.+)$'
+                    bullet_points = re.findall(bullet_pattern, summary)
+                    
+                    if bullet_points:
+                        for point in bullet_points:
+                            bullet_para = doc.add_paragraph()
+                            bullet_para.style = 'List Bullet'
+                            bullet_para.add_run(point.strip()).font.size = Pt(11)
+                    else:
+                        # Fallback if no bullet points found
+                        for line in summary.split('\n'):
+                            if line.strip():
+                                para = doc.add_paragraph()
+                                para.add_run(line.strip()).font.size = Pt(11)
                     
                     # Add a separator
                     doc.add_paragraph()
                     
+                    full_summary = f"Summary of {uploaded_file.name}:\n\n{summary}"
                     all_document_summaries.append(full_summary)
                     st.write(full_summary)
                     
