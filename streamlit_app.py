@@ -21,24 +21,12 @@ uploaded_files = st.file_uploader("Upload PDF files", type="pdf", accept_multipl
 summarize_button = st.button("Summarize")
 
 def extract_english_text(text):
-    """
-    Extract only English words from the given text
-    
-    Args:
-        text (str): Input text to filter
-    
-    Returns:
-        str: Text containing only English words
-    """
     try:
-        # Use regex to split text into words
         words = re.findall(r'\b\w+\b', text)
         
-        # Filter words and keep only those detected as English
         english_words = []
         for word in words:
             try:
-                # Only consider words longer than 1 character
                 if len(word) > 1:
                     lang = langdetect.detect(word)
                     if lang == 'en':
@@ -46,25 +34,13 @@ def extract_english_text(text):
             except langdetect.lang_detect_exception.LangDetectException:
                 continue
         
-        # Reconstruct text with only English words
         return ' '.join(english_words)
     
     except Exception as e:
-        st.warning(f"Language filtering error: {e}")
-        return text  # Fallback to original text if filtering fails
+        st.warning(f"Language error: {e}")
+        return text
 
-def chunk_document(text, chunk_size=4000, chunk_overlap=500):
-    """
-    Split document into manageable chunks
-    
-    Args:
-        text (str): Input text to chunk
-        chunk_size (int): Maximum number of characters per chunk
-        chunk_overlap (int): Number of characters to overlap between chunks
-    
-    Returns:
-        list: List of text chunks
-    """
+def chunk_document(text, chunk_size=8000, chunk_overlap=500):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -88,20 +64,27 @@ if summarize_button and uploaded_files and api_key:
             
             map_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Read and summarize the following content chunk in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 10 bullet points.\n\n{text}
+                template="""Read and summarize the following content chunk in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 10 bullet points.
+                Each summary for a document should start with the document name (without extensions like .pdf or .docx).
+                Each summary should have a heading named, "Key Pointers:"
+                Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
                 """
             )
             
             combine_prompt = PromptTemplate(
                 input_variables=["text"],
-                template="""Combine the following individual chunk summaries into a cohesive, insightful summary for the entire document. Ensure that it captures the core themes and purpose across all chunks in 15 bullet points:
+                template="""
+                Combine the following individual chunk summaries into a cohesive, insightful summary for the entire document. Ensure that it captures the core themes and purpose across all chunks in 15 bullet points:
                 
                 Key Themes and Insights:
                 \n\n{text}
                 """
             )
             
-            with st.spinner("Processing documents..."):
+            # Create Word document for summaries
+            doc = DocxDocument()
+            
+            with st.spinner("Processing documents"):
                 all_document_summaries = []
                 partially_filtered_files = []
                 
@@ -116,25 +99,16 @@ if summarize_button and uploaded_files and api_key:
                         if content:
                             text += content + "\n"
                     
-                    # Extract only English text
                     filtered_text = extract_english_text(text)
                     
-                    # Check if any meaningful text remains after filtering
                     if not filtered_text.strip():
                         st.warning(f"No English text found in {uploaded_file.name}")
                         continue
-                    
-                    # Track if text was partially filtered
                     if len(filtered_text) < len(text) * 0.5:
                         partially_filtered_files.append(uploaded_file.name)
                     
-                    # Chunk the filtered text
                     text_chunks = chunk_document(filtered_text)
-                    
-                    # Convert chunks to Langchain Documents
                     docs = [Document(page_content=chunk) for chunk in text_chunks]
-                    
-                    # Process chunks with map-reduce summarization
                     map_reduce_chain = load_summarize_chain(
                         llm,
                         chain_type="map_reduce",
@@ -145,17 +119,44 @@ if summarize_button and uploaded_files and api_key:
                     output_summary = map_reduce_chain.invoke(docs)
                     summary = output_summary['output_text']
                     
-                    # Add document name to summary
                     full_summary = f"Summary of {uploaded_file.name}:\n\n{summary}"
+                    
+                    # Add to Word document
+                    heading = doc.add_paragraph()
+                    heading_run = heading.add_run(f"Summary of {uploaded_file.name}")
+                    heading_run.bold = True
+                    heading_run.font.size = Pt(16)
+                    
+                    # Parse and add summary to document
+                    summary_lines = summary.split('\n')
+                    for line in summary_lines:
+                        line = line.strip()
+                        if line:
+                            para = doc.add_paragraph()
+                            para.add_run(line).font.size = Pt(11)
+                    
+                    # Add a separator
+                    doc.add_paragraph()
                     
                     all_document_summaries.append(full_summary)
                     st.write(full_summary)
                     
                     file_progress.text(f"Completed {uploaded_file.name}")
                 
-                # Display partially filtered files warning
                 if partially_filtered_files:
                     st.warning(f"The following files had significant non-English content and were partially filtered: {', '.join(partially_filtered_files)}")
+                
+                # Save and provide download for Word document
+                doc_output_path = "circulars_consolidated_summary.docx"
+                doc.save(doc_output_path)
+                
+                with open(doc_output_path, "rb") as doc_file:
+                    st.download_button(
+                        "Download Summaries DOCX",
+                        doc_file,
+                        file_name="circulars_consolidated_summary.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
                 
         except Exception as e:
             st.error(f"Error: {str(e)}")
