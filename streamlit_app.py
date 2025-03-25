@@ -81,6 +81,13 @@ if summarize_button and uploaded_files and api_key:
             # Create Word document for summaries
             doc = DocxDocument()
             
+            # Add Consolidated Overview Summary header
+            consolidated_overview_heading = doc.add_paragraph()
+            consolidated_overview_run = consolidated_overview_heading.add_run("Consolidated Overview Summary")
+            consolidated_overview_run.bold = True
+            consolidated_overview_run.font.size = Pt(16)
+            doc.add_paragraph()  # Add an empty line after header
+            
             with st.spinner("Processing documents"):
                 all_document_summaries = []
                 partially_filtered_files = []
@@ -119,8 +126,9 @@ if summarize_button and uploaded_files and api_key:
                     # Add to Word document with formatting similar to base code
                     document_name = uploaded_file.name.replace(".pdf", "")
                     
+                    # Add bold document name
                     doc_heading = doc.add_paragraph()
-                    heading_run = doc_heading.add_run(document_name)
+                    heading_run = doc_heading.add_run(f"Document Name: {document_name}")
                     heading_run.bold = True
                     heading_run.font.size = Pt(14)
                     
@@ -148,7 +156,7 @@ if summarize_button and uploaded_files and api_key:
                     # Add a separator
                     doc.add_paragraph()
                     
-                    full_summary = f"Summary of {uploaded_file.name}:\n\n{summary}"
+                    full_summary = f"Document Name: {document_name}\n\nKey Pointers:\n{summary}"
                     all_document_summaries.append(full_summary)
                     st.write(full_summary)
                     
