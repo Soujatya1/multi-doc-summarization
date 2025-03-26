@@ -54,6 +54,45 @@ def chunk_document(text, chunk_size=8000, chunk_overlap=500):
     
     return text_splitter.split_text(text)
 
+def standardize_key_pointers(summary):
+    """
+    Standardize key pointers to ensure consistent formatting.
+    
+    Args:
+        summary (str): The generated summary
+    
+    Returns:
+        str: Standardized summary with consistent key pointers
+    """
+    # Split the summary into sections
+    sections = summary.split('2. Key Pointers:')
+    
+    if len(sections) > 1:
+        # Extract the key pointers
+        pointers = sections[1].strip().split('\n')
+        
+        # Clean and standardize pointers
+        cleaned_pointers = []
+        for pointer in pointers:
+            # Remove any bullet points or numbering
+            clean_pointer = re.sub(r'^[-•*\d.)\s]+', '', pointer).strip()
+            
+            # Capitalize first letter, ensure it ends with a period
+            if clean_pointer:
+                clean_pointer = clean_pointer[0].upper() + clean_pointer[1:]
+                if not clean_pointer.endswith('.'):
+                    clean_pointer += '.'
+                
+                cleaned_pointers.append(clean_pointer)
+        
+        # Reconstruct the summary with standardized pointers
+        standardized_summary = f"{sections[0].strip()}\n\n2. Key Pointers:\n"
+        standardized_summary += '\n'.join([f"- {point}" for point in cleaned_pointers])
+        
+        return standardized_summary
+    
+    return summary
+
 def summarize_circular_documents(uploaded_files, api_key):
     """Summarize PDF circulars and generate a consolidated PDF summary."""
     # Validate API key
@@ -80,7 +119,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     If you encounter such information, DO NOT include it in your summary.
     """
 
-    # Prompts for summarization
+    # Prompts for summarization with consistent formatting
     map_prompt = PromptTemplate(
         input_variables=["text"],
         template=f"""{pii_instructions}Read and summarize the following content in your own words. 
@@ -92,11 +131,16 @@ def summarize_circular_documents(uploaded_files, api_key):
 
     combine_prompt = PromptTemplate(
         input_variables=["text"],
-        template="""Create a comprehensive summary with the following structure:
+        template="""Create a comprehensive summary with the following EXACT structure:
         1. Document Name: [Name of the document without extension]
         2. Key Pointers:
-        - Provide 10-15 key bullet points that capture the core essence, main themes, and critical insights of the document
-        - Ensure each point is informative and adds unique value to the understanding of the document
+        - Provide EXACTLY 10 key bullet points that capture the core essence, main themes, and critical insights of the document
+        - Each point MUST:
+          * Start with a capitalized first letter
+          * End with a period
+          * Be a clear, concise statement of a key insight or finding
+          * Avoid redundancy across points
+          * Focus on unique, substantive information
 
         Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
         """
@@ -174,7 +218,9 @@ def summarize_circular_documents(uploaded_files, api_key):
             )
             
             output_summary = map_reduce_chain.invoke(docs)
-            summary = output_summary['output_text']
+            
+            # Standardize the summary
+            summary = standardize_key_pointers(output_summary['output_text'])
 
             # Extract document name from uploaded file
             doc_name = os.path.splitext(uploaded_file.name)[0]
@@ -188,10 +234,12 @@ def summarize_circular_documents(uploaded_files, api_key):
             flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
             
             # Split summary into bullet points
-            bullet_points = summary.split('- ')[1:]  # Skip the first empty split
+            key_pointers_section = summary.split('2. Key Pointers:')[1].strip()
+            bullet_points = key_pointers_section.split('\n')
+            
             for point in bullet_points:
                 if point.strip():
-                    flowables.append(Paragraph(f"• {point.strip()}", styles['BulletPoint']))
+                    flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
             
             flowables.append(Spacer(1, 12))  # Add space between document summaries
 
