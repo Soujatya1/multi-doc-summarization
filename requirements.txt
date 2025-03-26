@@ -9,3 +9,4 @@ pypdf
 python-docx
 transformers
 langdetect
+reportlab
