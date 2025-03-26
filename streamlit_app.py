@@ -103,9 +103,7 @@ def summarize_pdf_documents(uploaded_files, api_key):
 
         combine_prompt = PromptTemplate(
             input_variables=["text"],
-            template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
-            Each summary should have a heading named, "Key Pointers:"
-            Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
+            template="""Generate a comprehensive overview that combines insights from all documents, capturing the core themes, purposes, and key information in a cohesive 15-point summary:\n\n{text}
             """
         )
 
@@ -128,6 +126,13 @@ def summarize_pdf_documents(uploaded_files, api_key):
 
         flowables = []
 
+        # Add Consolidated Overview Summary header
+        flowables.append(Paragraph("Consolidated Overview Summary", styles['Title']))
+        flowables.append(Spacer(1, 12))
+
+        # Prepare documents for final consolidation
+        all_docs = []
+
         # Process each uploaded PDF file
         for idx, uploaded_file in enumerate(uploaded_files, 1):
             status_text.info(f"Processing PDF {idx} of {len(uploaded_files)}")
@@ -148,28 +153,46 @@ def summarize_pdf_documents(uploaded_files, api_key):
                 # Chunk the text
                 text_chunks = chunk_document(filtered_text)
                 docs = [Document(page_content=chunk) for chunk in text_chunks]
+                all_docs.extend(docs)
 
-                # Summarize using map-reduce chain
+                # Summarize individual document
                 map_reduce_chain = load_summarize_chain(
                     llm,
                     chain_type="map_reduce",
                     map_prompt=map_prompt,
-                    combine_prompt=combine_prompt
+                    combine_prompt=PromptTemplate(
+                        input_variables=["text"],
+                        template="""Summarize the following document excerpt, highlighting its key points:\n\n{text}"""
+                    )
                 )
                 
                 output_summary = map_reduce_chain.invoke(docs)
                 summary = output_summary['output_text']
 
-                # Format summary for PDF
-                summary = re.sub(r'\*\*(.*?)\*\*', lambda m: f'<b>{m.group(1)}</b>', summary)
-                paragraphs = summary.split('\n')
-                
-                for para in paragraphs:
-                    if '**' in para:
-                        flowables.append(Paragraph(para.replace('**', ''), styles['Heading1']))
-                        flowables.append(Spacer(1, 24))  # Space after heading
-                    else:
-                        flowables.append(Paragraph(para, styles['BulletPoint']))
+                # Format and add individual document summary
+                flowables.append(Paragraph(f"Summary of Document {idx}", styles['Heading2']))
+                summary_paragraphs = summary.split('\n')
+                for para in summary_paragraphs:
+                    flowables.append(Paragraph(para, styles['BulletPoint']))
+                flowables.append(Spacer(1, 12))
+
+        # Final consolidated summary
+        if all_docs:
+            final_summary_chain = load_summarize_chain(
+                llm,
+                chain_type="map_reduce",
+                map_prompt=map_prompt,
+                combine_prompt=combine_prompt
+            )
+            
+            final_summary = final_summary_chain.invoke(all_docs)
+            consolidated_summary = final_summary['output_text']
+
+            # Add consolidated summary section
+            flowables.append(Paragraph("Comprehensive Insights", styles['Heading2']))
+            summary_paragraphs = consolidated_summary.split('\n')
+            for para in summary_paragraphs:
+                flowables.append(Paragraph(para, styles['BulletPoint']))
 
         # Build PDF
         doc.build(flowables)
