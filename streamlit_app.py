@@ -83,15 +83,22 @@ def summarize_circular_documents(uploaded_files, api_key):
     # Prompts for summarization
     map_prompt = PromptTemplate(
         input_variables=["text"],
-        template=f"""{pii_instructions}Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points. Elaborate on the key highlights as per \n\n{{text}}
+        template=f"""{pii_instructions}Read and summarize the following content in your own words. 
+        Provide a comprehensive summary that highlights the main ideas, purpose, and important insights 
+        without including direct phrases or sentences from the original text. Focus on creating a clear, 
+        concise summary that captures the essence of the document.\n\n{{text}}
         """
     )
 
     combine_prompt = PromptTemplate(
         input_variables=["text"],
-        template="""Each summary for a document should start with the document name (without extensions like .pdf or .docx).
-        Each summary should have a heading named, "Key Pointers:"
-        Combine the following individual summaries into a cohesive, insightful summary. Ensure that it is concise, capturing the core themes and purpose of the entire document in 15 bullet points:\n\n{text}
+        template="""Create a comprehensive summary with the following structure:
+        1. Document Name: [Name of the document without extension]
+        2. Key Pointers:
+        - Provide 10-15 key bullet points that capture the core essence, main themes, and critical insights of the document
+        - Ensure each point is informative and adds unique value to the understanding of the document
+
+        Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
         """
     )
 
@@ -114,6 +121,14 @@ def summarize_circular_documents(uploaded_files, api_key):
         spaceAfter=12
     ))
 
+    styles.add(ParagraphStyle(
+        name='DocumentName',
+        parent=styles['Heading2'],
+        textColor='darkblue',
+        fontSize=14,
+        spaceAfter=6
+    ))
+
     # Create a custom bullet point style if not exists
     if 'BulletPoint' not in styles:
         styles.add(ParagraphStyle(
@@ -129,7 +144,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     flowables = []
 
     # Add Consolidated Overview Summary header
-    flowables.append(Paragraph("Consolidated Overview Summary", styles['MainTitle']))
+    flowables.append(Paragraph("Consolidated Document Summary", styles['MainTitle']))
     flowables.append(Spacer(1, 12))
 
     # Process each uploaded PDF file
@@ -161,16 +176,24 @@ def summarize_circular_documents(uploaded_files, api_key):
             output_summary = map_reduce_chain.invoke(docs)
             summary = output_summary['output_text']
 
+            # Extract document name from uploaded file
+            doc_name = os.path.splitext(uploaded_file.name)[0]
+
             # Format summary for PDF
-            summary = re.sub(r'\*\*(.*?)\*\*', lambda m: f'<b>{m.group(1)}</b>', summary)
-            paragraphs = summary.split('\n')
+            # Add document name
+            flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
+            flowables.append(Spacer(1, 6))
+
+            # Add "Key Pointers" section
+            flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
             
-            for para in paragraphs:
-                if '**' in para:
-                    flowables.append(Paragraph(para.replace('**', ''), styles['Heading1']))
-                    flowables.append(Spacer(1, 24))  # Space after heading
-                else:
-                    flowables.append(Paragraph(para, styles['BulletPoint']))
+            # Split summary into bullet points
+            bullet_points = summary.split('- ')[1:]  # Skip the first empty split
+            for point in bullet_points:
+                if point.strip():
+                    flowables.append(Paragraph(f"• {point.strip()}", styles['BulletPoint']))
+            
+            flowables.append(Spacer(1, 12))  # Add space between document summaries
 
     # Build and save PDF
     doc.build(flowables)
