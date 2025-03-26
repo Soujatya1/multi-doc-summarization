@@ -1,3 +1,4 @@
+
 import os
 import streamlit as st
 from PyPDF2 import PdfReader
@@ -16,12 +17,14 @@ import langdetect
 from datetime import datetime
 
 def create_timestamped_filename(output_folder, base_file_name):
+    """Create a timestamped filename for the output PDF."""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     file_name = f"{base_file_name}_{timestamp}.pdf"
     full_path = os.path.join(output_folder, file_name)
     return full_path
 
 def extract_english_text(text):
+    """Extract English words from the given text."""
     try:
         words = re.findall(r'\b\w+\b', text)
         
@@ -42,6 +45,7 @@ def extract_english_text(text):
         return text
 
 def chunk_document(text, chunk_size=8000, chunk_overlap=500):
+    """Split the document into chunks."""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -52,16 +56,29 @@ def chunk_document(text, chunk_size=8000, chunk_overlap=500):
     return text_splitter.split_text(text)
 
 def standardize_key_pointers(summary):
+    """
+    Standardize key pointers to ensure consistent formatting.
     
+    Args:
+        summary (str): The generated summary
+    
+    Returns:
+        str: Standardized summary with consistent key pointers
+    """
+    # Split the summary into sections
     sections = summary.split('2. Key Pointers:')
     
     if len(sections) > 1:
+        # Extract the key pointers
         pointers = sections[1].strip().split('\n')
         
+        # Clean and standardize pointers
         cleaned_pointers = []
         for pointer in pointers:
+            # Remove any bullet points or numbering
             clean_pointer = re.sub(r'^[-•*\d.)\s]+', '', pointer).strip()
             
+            # Capitalize first letter, ensure it ends with a period
             if clean_pointer:
                 clean_pointer = clean_pointer[0].upper() + clean_pointer[1:]
                 if not clean_pointer.endswith('.'):
@@ -69,6 +86,7 @@ def standardize_key_pointers(summary):
                 
                 cleaned_pointers.append(clean_pointer)
         
+        # Reconstruct the summary with standardized pointers
         standardized_summary = f"{sections[0].strip()}\n\n2. Key Pointers:\n"
         standardized_summary += '\n'.join([f"- {point}" for point in cleaned_pointers])
         
@@ -77,11 +95,13 @@ def standardize_key_pointers(summary):
     return summary
 
 def summarize_circular_documents(uploaded_files, api_key):
-    y
+    """Summarize PDF circulars and generate a consolidated PDF summary."""
+    # Validate API key
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'.")
         return None
 
+    # Initialize LLM
     llm = ChatOpenAI(
         openai_api_key=api_key,
         model_name="gpt-4o-2024-08-06",
@@ -89,6 +109,7 @@ def summarize_circular_documents(uploaded_files, api_key):
         top_p=0.2
     )
 
+    # PII protection instructions
     pii_instructions = """
     IMPORTANT: DO NOT include any personally identifiable information (PII) in your summary, including:
     - Bank account numbers
@@ -99,6 +120,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     If you encounter such information, DO NOT include it in your summary.
     """
 
+    # Prompts for summarization with consistent formatting
     map_prompt = PromptTemplate(
         input_variables=["text"],
         template=f"""{pii_instructions}Read and summarize the following content in your own words. 
@@ -125,6 +147,7 @@ def summarize_circular_documents(uploaded_files, api_key):
         """
     )
 
+    # Prepare PDF output
     pdf_output = BytesIO()
     doc = SimpleDocTemplate(pdf_output, pagesize=A4, 
                             leftMargin=inch*0.5, 
@@ -133,12 +156,13 @@ def summarize_circular_documents(uploaded_files, api_key):
                             bottomMargin=inch*0.5)
     styles = getSampleStyleSheet()
 
+    # Create custom styles
     styles.add(ParagraphStyle(
         name='MainTitle',
         parent=styles['Title'],
         fontSize=16,
         textColor='navy',
-        alignment=1,
+        alignment=1,  # Center alignment
         spaceAfter=12
     ))
 
@@ -150,6 +174,7 @@ def summarize_circular_documents(uploaded_files, api_key):
         spaceAfter=6
     ))
 
+    # Create a custom bullet point style if not exists
     if 'BulletPoint' not in styles:
         styles.add(ParagraphStyle(
             name='BulletPoint',
@@ -163,10 +188,13 @@ def summarize_circular_documents(uploaded_files, api_key):
 
     flowables = []
 
+    # Add Consolidated Overview Summary header
     flowables.append(Paragraph("Consolidated Document Summary", styles['MainTitle']))
     flowables.append(Spacer(1, 12))
 
+    # Process each uploaded PDF file
     for uploaded_file in uploaded_files:
+        # Extract text from PDF
         pdf_reader = PdfReader(uploaded_file)
         text = ''
         for page in pdf_reader.pages:
@@ -174,12 +202,15 @@ def summarize_circular_documents(uploaded_files, api_key):
             if content:
                 text += content + "\n"
 
+        # Filter text
         filtered_text = extract_english_text(text)
 
         if filtered_text.strip():
+            # Chunk the text
             text_chunks = chunk_document(filtered_text)
             docs = [Document(page_content=chunk) for chunk in text_chunks]
 
+            # Summarize using map-reduce chain
             map_reduce_chain = load_summarize_chain(
                 llm,
                 chain_type="map_reduce",
@@ -189,15 +220,21 @@ def summarize_circular_documents(uploaded_files, api_key):
             
             output_summary = map_reduce_chain.invoke(docs)
             
+            # Standardize the summary
             summary = standardize_key_pointers(output_summary['output_text'])
 
+            # Extract document name from uploaded file
             doc_name = os.path.splitext(uploaded_file.name)[0]
 
+            # Format summary for PDF
+            # Add document name
             flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
             flowables.append(Spacer(1, 6))
 
+            # Add "Key Pointers" section
             flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
             
+            # Split summary into bullet points
             key_pointers_section = summary.split('2. Key Pointers:')[1].strip()
             bullet_points = key_pointers_section.split('\n')
             
@@ -205,8 +242,9 @@ def summarize_circular_documents(uploaded_files, api_key):
                 if point.strip():
                     flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
             
-            flowables.append(Spacer(1, 12))
+            flowables.append(Spacer(1, 12))  # Add space between document summaries
 
+    # Build and save PDF
     doc.build(flowables)
     pdf_output.seek(0)
 
@@ -217,15 +255,18 @@ def main():
     
     st.title("🔍 PDF Circular Summarizer")
     
+    # Sidebar for API Key input
     st.sidebar.header("Configuration")
     openai_api_key = st.sidebar.text_input("Enter OpenAI API Key", type="password")
     
+    # File uploader
     uploaded_files = st.file_uploader(
         "Upload PDF Circulars", 
         type=['pdf'], 
         accept_multiple_files=True
     )
     
+    # Summarization button
     if st.button("Summarize PDFs"):
         if not openai_api_key:
             st.error("Please enter your OpenAI API Key")
@@ -237,9 +278,11 @@ def main():
         
         with st.spinner('Generating Summary...'):
             try:
+                # Generate PDF summary
                 summary_pdf = summarize_circular_documents(uploaded_files, openai_api_key)
                 
                 if summary_pdf:
+                    # Create download button
                     st.download_button(
                         label="Download Summary PDF",
                         data=summary_pdf,
@@ -251,6 +294,7 @@ def main():
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
 
+    # About section
     st.sidebar.markdown("---")
     st.sidebar.info("""
     ### How to Use
