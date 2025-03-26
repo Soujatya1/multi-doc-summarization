@@ -83,7 +83,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     # Prompts for summarization
     map_prompt = PromptTemplate(
         input_variables=["text"],
-        template=f"""{pii_instructions}Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points.\n\n{{text}}
+        template=f"""{pii_instructions}Read and summarize the following content in your own words, highlighting the main ideas, purpose, and important insights without including direct phrases or sentences from the original text in 15 bullet points. Elaborate on the key highlights as per \n\n{{text}}
         """
     )
 
