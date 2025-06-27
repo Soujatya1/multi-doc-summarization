@@ -136,7 +136,8 @@ def summarize_circular_documents(uploaded_files, api_key):
         1. Document Name: [Name of the document without extension]
         2. Key Pointers:
         - Provide key bullet points that capture the core essence, main themes, and critical insights of the document, also be specific with the details from the documents uploaded
-        - Do not miss out on any specifications
+        - Do not miss out on any specifications/ details which are important
+        - Create as many pointers as you see fit
         - Each point MUST:
           * Start with a capitalized first letter
           * End with a period
