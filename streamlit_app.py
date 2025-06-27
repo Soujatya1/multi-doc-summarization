@@ -135,7 +135,8 @@ def summarize_circular_documents(uploaded_files, api_key):
         template="""Create a comprehensive summary with the following EXACT structure:
         1. Document Name: [Name of the document without extension]
         2. Key Pointers:
-        - Provide EXACTLY 18 key bullet points that capture the core essence, main themes, and critical insights of the document
+        - Provide key bullet points that capture the core essence, main themes, and critical insights of the document, also be specific with the details from the documents uploaded
+        - Do not miss out on any specifications
         - Each point MUST:
           * Start with a capitalized first letter
           * End with a period
