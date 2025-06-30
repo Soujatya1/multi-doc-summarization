@@ -130,8 +130,8 @@ def summarize_circular_documents(uploaded_files, api_key):
     )
 
     combine_prompt = PromptTemplate(
-    input_variables=["text"],
-    template="""Create a comprehensive summary with the following EXACT structure:
+        input_variables=["text"],
+        template="""Create a comprehensive summary with the following EXACT structure:
     1. Document Name: [Name of the document without extension]
     2. Key Pointers:
     - Extract and prioritize the MOST CRITICAL information, specifications, requirements, deadlines, and actionable items from the document
@@ -151,7 +151,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     PRIORITY: Focus on capturing specifications, numerical data, deadlines, requirements, and operational instructions that are essential for understanding and implementing the document's directives.
 
     Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
-    """
+    """)
 
     # Prepare PDF output
     pdf_output = BytesIO()
