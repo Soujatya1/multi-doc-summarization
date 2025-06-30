@@ -1,4 +1,3 @@
-
 import os
 import streamlit as st
 from PyPDF2 import PdfReader
@@ -131,23 +130,28 @@ def summarize_circular_documents(uploaded_files, api_key):
     )
 
     combine_prompt = PromptTemplate(
-        input_variables=["text"],
-        template="""Create a comprehensive summary with the following EXACT structure:
-        1. Document Name: [Name of the document without extension]
-        2. Key Pointers:
-        - Provide key bullet points that capture the main themes, and critical insights of the document, also be specific with the details from the documents uploaded
-        - Do not miss out on any specifications/ details which are important
-        - Create as many pointers as you see fit
-        - Each point MUST:
-          * Start with a capitalized first letter
-          * End with a period
-          * Be a specific on the details for each key insight or finding
-          * Avoid redundancy across points
-          * Focus on unique, substantive information
+    input_variables=["text"],
+    template="""Create a comprehensive summary with the following EXACT structure:
+    1. Document Name: [Name of the document without extension]
+    2. Key Pointers:
+    - Extract and prioritize the MOST CRITICAL information, specifications, requirements, deadlines, and actionable items from the document
+    - Include specific numbers, dates, percentages, amounts, thresholds, and quantitative details
+    - Highlight regulatory requirements, compliance measures, and mandatory actions
+    - Mention key stakeholders, departments, or entities involved
+    - Note any exceptions, special conditions, or edge cases mentioned
+    - Include implementation timelines, effective dates, and expiry dates if applicable
+    - Each point MUST:
+      * Start with a capitalized first letter
+      * End with a period
+      * Be highly specific with exact details, figures, and specifications from the source
+      * Prioritize actionable and decision-critical information
+      * Avoid vague or generic statements
+      * Focus on information that would impact business operations or compliance
 
-        Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
-        """
-    )
+    PRIORITY: Focus on capturing specifications, numerical data, deadlines, requirements, and operational instructions that are essential for understanding and implementing the document's directives.
+
+    Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
+    """
 
     # Prepare PDF output
     pdf_output = BytesIO()
