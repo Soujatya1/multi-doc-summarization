@@ -124,40 +124,28 @@ def summarize_circular_documents(uploaded_files, api_key):
         input_variables=["text"],
         template=f"""{pii_instructions}Read and summarize the following content in your own words. 
         Provide a comprehensive summary that highlights the main ideas, purpose, and important insights 
-        without including direct phrases or sentences from the original text. Focus on creating a clear, 
-        concise summary that captures the essence of the document.\n\n{{text}}
+        Always include the key components, updated and specifications mentioned, important circular updates.\n\n{{text}}
         """
     )
 
     combine_prompt = PromptTemplate(
-    input_variables=["text"],
-    template="""Create a comprehensive summary with the following EXACT structure for these CIRCULAR documents:
-    1. Document Name: [Name of the circular without extension]
-    2. Key Pointers:
-    - Identify the PURPOSE and SCOPE of the circular (what it addresses and who it applies to)
-    - Extract MANDATORY directives, instructions, and compliance requirements
-    - Include specific NUMERICAL data: limits, thresholds, rates, percentages, amounts, ratios
-    - Highlight DEADLINES, effective dates, implementation timelines, and reporting schedules
-    - Note PENALTIES, consequences, or enforcement measures for non-compliance
-    - Specify WHO must take action (target entities, departments, categories of institutions)
-    - Detail PROCEDURAL steps, processes, or workflows that must be followed
-    - Mention any EXEMPTIONS, exceptions, or special conditions
-    - Include REPORTING requirements, formats, frequencies, and submission channels
-    - Capture any REFERENCES to other regulations, circulars, or legal frameworks
-    - Note REVISIONS, amendments, or superseded regulations mentioned
-    - Each point MUST:
-      * Start with a capitalized first letter
-      * End with a period
-      * Be highly specific with exact details, figures, and specifications from the circular
-      * Prioritize regulatory compliance and operational impact
-      * Include precise dates, amounts, and procedural details
-      * Focus on actionable directives that require implementation
+        input_variables=["text"],
+        template="""Create a comprehensive summary with the following EXACT structure:
+        1. Document Name: [Name of the document without extension]
+        2. Key Pointers:
+        - Provide key bullet points that capture the main themes, and critical insights of the document, also be specific with the details from the documents uploaded
+        - Do not miss out on any specifications/ details which are important
+        - Create as many pointers as you see fit
+        - Each point MUST:
+          * Start with a capitalized first letter
+          * End with a period
+          * Be a specific on the details for each key insight or finding
+          * Avoid redundancy across points
+          * Focus on unique, substantive information
 
-    PRIORITY: Extract the regulatory intent, specific compliance requirements, numerical specifications, deadlines, and actionable instructions that organizations must follow as per this circular.
-
-    Combine the following individual summaries into a cohesive, insightful overview that maintains the unique regulatory characteristics of each circular:\n\n{text}
-    """
-)
+        Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
+        """
+    )
 
     # Prepare PDF output
     pdf_output = BytesIO()
