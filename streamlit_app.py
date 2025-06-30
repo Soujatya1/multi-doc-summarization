@@ -122,8 +122,8 @@ def summarize_circular_documents(uploaded_files, api_key):
     # Prompts for summarization with consistent formatting
     map_prompt = PromptTemplate(
         input_variables=["text"],
-        template=f"""{pii_instructions}Read and summarize the following content in your own words. 
-        Provide a comprehensive summary that highlights the main ideas, purpose, and important insights 
+        template=f"""{pii_instructions}
+        Extract the highlights, the main ideas, purpose, and important insights 
         Always include the key components, updated and specifications mentioned, important circular updates.\n\n{{text}}
         """
     )
