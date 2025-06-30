@@ -130,28 +130,34 @@ def summarize_circular_documents(uploaded_files, api_key):
     )
 
     combine_prompt = PromptTemplate(
-        input_variables=["text"],
-        template="""Create a comprehensive summary with the following EXACT structure:
-    1. Document Name: [Name of the document without extension]
+    input_variables=["text"],
+    template="""Create a comprehensive summary with the following EXACT structure for these CIRCULAR documents:
+    1. Document Name: [Name of the circular without extension]
     2. Key Pointers:
-    - Extract and prioritize the MOST CRITICAL information, specifications, requirements, deadlines, and actionable items from the document
-    - Include specific numbers, dates, percentages, amounts, thresholds, and quantitative details
-    - Highlight regulatory requirements, compliance measures, and mandatory actions
-    - Mention key stakeholders, departments, or entities involved
-    - Note any exceptions, special conditions, or edge cases mentioned
-    - Include implementation timelines, effective dates, and expiry dates if applicable
+    - Identify the PURPOSE and SCOPE of the circular (what it addresses and who it applies to)
+    - Extract MANDATORY directives, instructions, and compliance requirements
+    - Include specific NUMERICAL data: limits, thresholds, rates, percentages, amounts, ratios
+    - Highlight DEADLINES, effective dates, implementation timelines, and reporting schedules
+    - Note PENALTIES, consequences, or enforcement measures for non-compliance
+    - Specify WHO must take action (target entities, departments, categories of institutions)
+    - Detail PROCEDURAL steps, processes, or workflows that must be followed
+    - Mention any EXEMPTIONS, exceptions, or special conditions
+    - Include REPORTING requirements, formats, frequencies, and submission channels
+    - Capture any REFERENCES to other regulations, circulars, or legal frameworks
+    - Note REVISIONS, amendments, or superseded regulations mentioned
     - Each point MUST:
       * Start with a capitalized first letter
       * End with a period
-      * Be highly specific with exact details, figures, and specifications from the source
-      * Prioritize actionable and decision-critical information
-      * Avoid vague or generic statements
-      * Focus on information that would impact business operations or compliance
+      * Be highly specific with exact details, figures, and specifications from the circular
+      * Prioritize regulatory compliance and operational impact
+      * Include precise dates, amounts, and procedural details
+      * Focus on actionable directives that require implementation
 
-    PRIORITY: Focus on capturing specifications, numerical data, deadlines, requirements, and operational instructions that are essential for understanding and implementing the document's directives.
+    PRIORITY: Extract the regulatory intent, specific compliance requirements, numerical specifications, deadlines, and actionable instructions that organizations must follow as per this circular.
 
-    Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
-    """)
+    Combine the following individual summaries into a cohesive, insightful overview that maintains the unique regulatory characteristics of each circular:\n\n{text}
+    """
+)
 
     # Prepare PDF output
     pdf_output = BytesIO()
