@@ -56,10 +56,13 @@ if uploaded_pdf and openai_api_key:
     documents = [Document(page_content=chunk) for chunk in chunks]
 
     prompt_template = PromptTemplate.from_template(
-        """You are a legal expert assistant. Summarize the following content into concise bullet points in simple formal English:
-        \n\n{text}\n\nSummary in bullet points:"""
+    """You are a legal expert assistant. Summarize the following content into concise bullet points in simple formal English:
+
+    {context}
+
+    Summary in bullet points:"""
     )
-    llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.3)
+    llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o", temperature=0.3)
     summarizer_chain = create_stuff_documents_chain(llm, prompt_template)
 
     with st.spinner("Generating summary..."):
