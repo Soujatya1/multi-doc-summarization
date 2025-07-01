@@ -446,7 +446,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
     content = []
 
     # Title and metadata with document name
-    content.append(Paragraph(f"Summary of {original_filename}", title_style))
+    content.append(Paragraph(f"Summary of {os.path.splitext(original_filename)[0]}", title_style))
     content.append(Spacer(1, 12))
 
     content.append(Spacer(1, 20))
@@ -454,15 +454,19 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
     # Add structured content with better formatting
     if structured_summary:
         for i, section in enumerate(structured_summary):
+            # Skip generic initial summary section
+            if i == 0 and 'Regulatory and Development Authority' in section['title']:
+                continue
+
             # Section title
             content.append(Paragraph(f"{i+1}. {section['title']}", section_style))
 
             # Section points
             for point in section['points']:
-                if '\n        \u2022' in point:
-                    main_point, sub_points = point.split('\n        \u2022', 1)
+                if '\n        •' in point:
+                    main_point, sub_points = point.split('\n        •', 1)
                     content.append(Paragraph(f"• {main_point}", bullet_style))
-                    for sub_point in sub_points.split('\n        \u2022'):
+                    for sub_point in sub_points.split('\n        •'):
                         if sub_point.strip():
                             content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
                 else:
@@ -473,10 +477,10 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
                 content.append(Paragraph(f"{subsection['title']}:", subsection_style))
 
                 for point in subsection['points']:
-                    if '\n        \u2022' in point:
-                        main_point, sub_points = point.split('\n        \u2022', 1)
+                    if '\n        •' in point:
+                        main_point, sub_points = point.split('\n        •', 1)
                         content.append(Paragraph(f"• {main_point}", bullet_style))
-                        for sub_point in sub_points.split('\n        \u2022'):
+                        for sub_point in sub_points.split('\n        •'):
                             if sub_point.strip():
                                 content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
                     else:
@@ -486,7 +490,6 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
             if i < len(structured_summary) - 1:
                 content.append(Spacer(1, 16))
     else:
-        # Enhanced fallback display
         content.append(Paragraph("Summary Content:", section_style))
         paragraphs = raw_summary.split('\n\n')
         for para in paragraphs:
