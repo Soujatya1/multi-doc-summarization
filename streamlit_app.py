@@ -150,7 +150,7 @@ def summarize_circular_documents(uploaded_files, api_key):
     input_variables=["text"],
     template="""Create a comprehensive compliance-focused summary with the following EXACT structure:
     1. Document Name: [Name of the document without extension]
-    2. Key Compliance Regulations & Updates:
+    2. Key Pointers:
     
     For each compliance regulation or update, provide detailed bullet points that include:
     - Specific regulation name, number, or reference code
