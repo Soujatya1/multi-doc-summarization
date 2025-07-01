@@ -461,7 +461,6 @@ def main():
     st.title("📋 Enhanced Detailed Document Summarizer")
     st.markdown("Generate comprehensive, enhanced summaries that capture EVERY important detail!")
     
-    # Sidebar for configuration
     with st.sidebar:
         st.header("⚙️ Configuration")
         
@@ -475,17 +474,6 @@ def main():
         # Model selection
         model_options = ["gpt-4o", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
         selected_model = st.selectbox("Select Model", model_options, help="GPT-4 strongly recommended for detailed summaries")
-        
-        # Processing settings
-        st.subheader("🔧 Processing Settings")
-        
-        # Fixed chunk settings
-        st.info("📋 **Fixed Optimal Settings:**")
-        st.text("• Chunk Size: 1500 characters")
-        st.text("• Chunk Overlap: 500 characters")
-        st.text("• Enhanced Summary: Enabled")
-        
-        st.success("✅ Enhanced processing with automatic detail enhancement enabled")
     
     # Main interface
     col1, col2 = st.columns([1, 1])
