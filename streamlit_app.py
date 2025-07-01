@@ -66,7 +66,8 @@ if uploaded_pdf and openai_api_key:
     summarizer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
 
     with st.spinner("Generating summary..."):
-        summary_text = summarizer_chain.invoke(documents).strip()
+        response = summarizer_chain.invoke({"input_documents": documents})
+        summary_text = response.strip()
 
     # Convert summary to bullet points
     bullets = [line.strip("-• ") for line in summary_text.split("\n") if line.strip()]
