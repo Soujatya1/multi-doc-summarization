@@ -124,8 +124,8 @@ def summarize_circular_documents(uploaded_files, api_key):
         input_variables=["text"],
         template=f"""{pii_instructions}
         Extract the highlights, the main ideas, purpose, and important insights
-        Focus on the level of details at a greater extent
-        Always include the key components, updated and specifications mentioned, important circular updates.\n\n{{text}}
+        Focus on the level of details, circular updates, the names/specified updates
+        Always include the key components, updates and specifications mentioned, important circular updates.\n\n{{text}}
         """
     )
 
