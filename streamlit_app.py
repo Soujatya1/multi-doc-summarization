@@ -551,14 +551,6 @@ def main():
     if hasattr(st.session_state, 'summary') and st.session_state.summary:
         st.header("📋 Generated Enhanced Summary")
         
-        # Show summary metrics (removed Summary Length)
-        col1, col2 = st.columns(2)
-        with col1:
-            if hasattr(st.session_state, 'coverage'):
-                st.metric("Detail Coverage", f"{st.session_state.coverage:.1%}")
-        with col2:
-            st.metric("Sections", len(st.session_state.structured_summary))
-        
         # Display structured summary with better formatting
         if st.session_state.structured_summary:
             for i, section in enumerate(st.session_state.structured_summary):
