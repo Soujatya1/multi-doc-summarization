@@ -69,8 +69,8 @@ def create_summarization_chain(api_key, chain_type="stuff"):
         
         # Custom prompt for bullet-point summaries
         prompt_template = """
-        Please provide a comprehensive summary of the following text in bullet points format.
-        Focus on the key points, main ideas, and important details.
+        Please provide a detailed summary of the following text in bullet points format.
+        Focus on the key points, main ideas, and important details and in the flow of the document write the detailed summary.
         Format your response as clear, concise bullet points starting with "•".
         
         Text: {text}
