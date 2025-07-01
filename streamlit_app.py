@@ -278,6 +278,7 @@ def summarize_single_document(text, document_name, llm):
             summary = f"Document Name: {document_name}\nError: Unable to process document due to error: {str(e)}"
     
     return summary
+    st.write(summary)
 
 def add_parsed_content_to_pdf(flowables, parsed_content, styles, doc_name):
     """
