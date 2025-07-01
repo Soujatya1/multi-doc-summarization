@@ -1,82 +1,65 @@
-import os
-import tempfile
 import streamlit as st
-from PyPDF2 import PdfReader
-from langchain.docstore.document import Document
-from langchain.prompts import PromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ListStyle
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-
-
-# Function to extract text from PDF
-def extract_text_from_pdf(uploaded_pdf):
-    reader = PdfReader(uploaded_pdf)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
-    return text
-
-
-# Function to create bullet-point PDF using ReportLab
-def create_bullet_pdf(bullets, output_path):
-    c = canvas.Canvas(output_path, pagesize=A4)
-    width, height = A4
-    textobject = c.beginText(50, height - 50)
-    textobject.setFont("Helvetica", 12)
-
-    textobject.textLine("Summary:")
-    textobject.textLine("")
-
-    for bullet in bullets:
-        lines = bullet.strip().split("\n")
-        for line in lines:
-            if line.strip():
-                textobject.textLine(f"• {line.strip()}")
-        textobject.textLine("")
-
-    c.drawText(textobject)
-    c.save()
-
+from reportlab.lib.units import inch
+import tempfile
+import os
 
 # Streamlit UI
-st.title("📄 Document Summarizer with PDF Output")
+st.title("📝 PDF Summarizer to Bullet Point PDF")
+uploaded_file = st.file_uploader("Upload a PDF document", type="pdf")
 
-uploaded_pdf = st.file_uploader("Upload a PDF", type=["pdf"])
-openai_api_key = st.text_input("Enter your OpenAI API Key", type="password")
+if uploaded_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        tmp_file_path = tmp_file.name
 
-if uploaded_pdf and openai_api_key:
-    text = extract_text_from_pdf(uploaded_pdf)
-    
-    # LangChain setup
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-    chunks = text_splitter.split_text(text)
-    documents = [Document(page_content=chunk) for chunk in chunks]
+    # Load PDF as documents
+    loader = PyPDFLoader(tmp_file_path)
+    pages = loader.load_and_split()
 
-    prompt_template = PromptTemplate.from_template(
-    """You are a legal expert assistant. Summarize the following content into concise bullet points in simple formal English:
+    # Define Prompt Template
+    prompt = PromptTemplate(
+        template="""
+        You are a legal assistant. Summarize the following PDF text into clear and concise bullet points suitable for a regulatory report:
 
-    {context}
+        {context}
 
-    Summary in bullet points:"""
+        Bullet Point Summary:
+        """,
+        input_variables=["context"]
     )
-    llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o", temperature=0.3)
-    summarizer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
 
-    with st.spinner("Generating summary..."):
-        response = summarizer_chain.invoke({"input_documents": documents})
-        summary_text = response.strip()
+    # Initialize LLM
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-    # Convert summary to bullet points
-    bullets = [line.strip("-• ") for line in summary_text.split("\n") if line.strip()]
-    
-    # Save to PDF
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
-        pdf_path = tmpfile.name
-        create_bullet_pdf(bullets, pdf_path)
+    # Create chain
+    chain = create_stuff_documents_chain(llm, prompt)
 
-    st.success("Summary generated and saved as PDF.")
-    with open(pdf_path, "rb") as f:
-        st.download_button("📥 Download Summary PDF", f, file_name="summary_output.pdf")
+    # Generate bullet points
+    summary_text = chain.invoke(pages)
+
+    # Parse bullet points for PDF writing
+    bullet_points = summary_text.split("\n")
+    bullet_points = [bp.strip("- ") for bp in bullet_points if bp.strip()]
+
+    # Generate PDF with ReportLab
+    output_path = os.path.join(tempfile.gettempdir(), "summary_output.pdf")
+    doc = SimpleDocTemplate(output_path, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = [Paragraph("Summary (Bullet Points)", styles['Title']), Spacer(1, 0.2 * inch)]
+
+    for bullet in bullet_points:
+        story.append(Paragraph(f"• {bullet}", styles['Normal']))
+        story.append(Spacer(1, 0.1 * inch))
+
+    doc.build(story)
+
+    with open(output_path, "rb") as f:
+        st.download_button("Download Summary PDF", f, file_name="summary_output.pdf")
