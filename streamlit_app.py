@@ -109,13 +109,67 @@ def create_document_summary_chain(llm):
     # Regulatory-focused prompt template
     prompt_template = f"""{pii_instructions}
 
-    You are a regulatory analyst. Summarize the uploaded government or regulatory document in a structured format. Your output should contain:
+    You are a senior regulatory analyst specialized in compliance documentation. Read and extract all relevant details from the uploaded regulatory document. Your task is to produce a highly accurate, structured, and complete summary of the document as per the following format:
 
-    The summary should contain:
-    1. Part/flow-wise headings and sub-pointers as to what is happening in that section
-    2. All specific details for regulatory updates should be captured well
+🔹 Output Format:
+Document Identity
 
+Title
 
+Issuing Authority
+
+Notification Date & Gazette Reference
+
+Effective Date
+
+Applicability (including inclusions and exclusions)
+
+Objective / Purpose
+
+Clearly list the purpose(s) stated in the regulation.
+
+Chapter-wise Summary
+
+For each Chapter (or Part), use the format:
+
+Chapter Name (or Section title if no chaptering)
+
+Provide a bullet-point list of rules, requirements, roles, and key conditions.
+
+Mention mandatory thresholds, timelines, exemptions, or penalties.
+
+Include committee types, responsibilities, and special cases.
+
+Critical Regulatory Mandates
+
+Highlight key mandates such as:
+
+Board composition and committee requirements.
+
+Appointment norms for KMPs and Statutory Auditors.
+
+ESG framework, Risk Management, Compliance Reporting.
+
+Capital requirements and succession planning.
+
+Compliance and Disclosure Requirements
+
+Mention roles like Chief Compliance Officer (CCO) and reporting frequency.
+
+Note what must be filed with the Authority and when.
+
+Transitional Provisions / Clarifications
+
+Detail any transitional guidelines, future circulars, or powers reserved by the Authority.
+
+🔹 Key Instructions:
+Use official terminology (e.g., Independent Directors, Board of Insurers, KMPs).
+
+Do not omit sub-points even if they seem repetitive.
+
+Ensure completeness: if a chapter lists multiple roles, functions, or exceptions—capture all.
+
+Avoid interpretation: Just extract and rephrase clearly without editorializing.
 
     Document Content:
     {{context}}
