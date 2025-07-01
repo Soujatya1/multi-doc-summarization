@@ -449,8 +449,6 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
     content.append(Paragraph(f"Summary of {os.path.splitext(original_filename)[0]}", title_style))
     content.append(Spacer(1, 12))
 
-    content.append(Spacer(1, 20))
-
     # Add structured content with better formatting
     if structured_summary:
         for i, section in enumerate(structured_summary):
