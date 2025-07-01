@@ -96,42 +96,49 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o"):
     
     # Enhanced prompt template for detailed structured summary
     prompt_template = ChatPromptTemplate.from_template("""
-    You are an expert document analyst. Create a comprehensive, detailed summary of the following document content.
+    You are an expert regulatory document analyst specializing in insurance and corporate governance regulations. Create a comprehensive, detailed summary that captures EVERY important detail from the document.
+
+    CRITICAL REQUIREMENTS:
+    1. **PRESERVE ALL SPECIFIC DETAILS**: Include exact timeframes (days, months, years), monetary amounts, percentages, committee compositions, tenure limits, and procedural requirements
+    2. **EXTRACT TECHNICAL DEFINITIONS**: Capture all definitions of terms like KMPs, Independent Directors, Competent Authority, etc.
+    3. **DETAILED COMPLIANCE REQUIREMENTS**: Include all regulatory obligations, approval processes, reporting timelines, and penalty/consequence information
+    4. **COMMITTEE STRUCTURES**: Detail all committee compositions, roles, responsibilities, quorum requirements, and meeting frequencies
+    5. **PROCEDURAL STEPS**: Capture step-by-step processes, approval workflows, and notification requirements
 
     FORMATTING REQUIREMENTS:
-    1. Use clear hierarchical structure with main sections and sub-sections
-    2. Create meaningful section headers based on the document's natural structure
-    3. Under each section, provide detailed bullet points that capture ALL key information
-    4. Include specific details, requirements, procedures, and important clauses
-    5. Preserve important technical terms, definitions, and specific requirements
-    6. Use indentation to show relationships between main points and sub-points
-    7. Bold important terms and section headers using markdown formatting
-    8. Include specific numbers, percentages, timeframes, and other quantitative data
-    9. Capture compliance requirements, responsibilities, and procedural details
+    1. Use clear hierarchical structure with main sections and sub-sections based on the document's actual organization
+    2. Create section headers that match or reflect the document's original structure (e.g., "Board:", "Committees:", "CEO and KMPs:")
+    3. Under each section, provide comprehensive bullet points that capture ALL key information without summarizing away important details
+    4. Use bold formatting for important terms, requirements, and section headers
+    5. Include ALL specific numbers, timeframes, monetary limits, and quantitative data EXACTLY as stated
+    6. Preserve technical terminology and regulatory language
+    7. Use sub-bullets to show detailed breakdowns and related requirements
 
-    STRUCTURE EXAMPLE:
-    **[Main Section Title]**
+    CONTENT EXTRACTION PRIORITIES:
+    - **Definitions**: Extract ALL defined terms with their complete definitions
+    - **Timeframes**: Include ALL deadlines, tenure limits, notice periods, and timing requirements
+    - **Monetary Amounts**: Capture all financial limits, thresholds, and remuneration details
+    - **Approval Processes**: Detail who approves what, when approvals are needed, and approval timelines
+    - **Committee Details**: Include composition requirements, roles, responsibilities, and operational details
+    - **Compliance Obligations**: Extract all reporting requirements, certification needs, and regulatory obligations
+    - **Procedural Requirements**: Include step-by-step processes and operational procedures
+    - **Exceptions and Special Cases**: Note any exemptions, special circumstances, or conditional requirements
+
+    EXAMPLE OUTPUT STRUCTURE (adapt to actual document content):
+    **[Main Section as it appears in document]**
     
-    [Subsection Title]:
-    - Main point with specific details
-        - Sub-point with additional context
-        - Another sub-point with requirements
-    - Another main point
-        - Detailed explanation
-        - Specific requirements or procedures
-    
-    CONTENT FOCUS:
-    - Extract ALL significant information, not just high-level points
-    - Include definitions, procedures, requirements, and compliance details
-    - Preserve the logical flow and organization of the original document
-    - Capture both mandatory and optional requirements
-    - Include timelines, deadlines, and procedural steps
-    - Note any exceptions, special cases, or conditional requirements
+    [Subsection Title from document]:
+    - Specific requirement with exact details (include numbers, timeframes, amounts)
+        - Sub-requirement with precise specifications
+        - Additional procedural details with exact compliance timelines
+    - Another requirement capturing technical definitions or processes
+        - Detailed breakdown of components or steps
+        - Specific conditions or exceptions
 
     Document content:
     {context}
     
-    Detailed Structured Summary:
+    Comprehensive Detailed Summary (capture ALL important details):
     """)
     
     # Create the stuff documents chain
