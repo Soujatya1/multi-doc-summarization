@@ -91,7 +91,7 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o"):
     llm = ChatOpenAI(
         api_key=api_key,
         model_name=model_name,
-        temperature=0.2
+        temperature=0.1
     )
     
     # Enhanced prompt template for detailed structured summary
