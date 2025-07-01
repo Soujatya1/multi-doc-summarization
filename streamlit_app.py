@@ -111,23 +111,9 @@ def create_document_summary_chain(llm):
 
     You are a regulatory analyst. Summarize the uploaded government or regulatory document in a structured format. Your output should contain:
 
-Document Type – what kind of document it is (e.g., notification, regulation, bill, policy).
-
-Issuing Authority – who has published it.
-
-Title and Date – name of the document and effective date.
-
-Purpose – what the document intends to achieve.
-
-Key Provisions – a bullet-point or chapter-wise summary of the main contents.
-
-Applicability – whom this applies to (e.g., insurers, corporates, individuals).
-
-Compliance Requirements – any specific mandates or responsibilities.
-
-One-Line Summary – what the document means at a glance.
-
-Use simple language, be factually accurate, and avoid legalese unless essential
+    The summary should contain:
+    1. Part/flow-wise headings and sub-pointers as to what is happening in that section
+    2. All specific details for regulatory updates should be captured well
 
 
 
