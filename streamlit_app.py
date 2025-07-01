@@ -5,7 +5,7 @@ from langchain.docstore.document import Document
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains.summarize import load_summarize_chain
+from langchain.chains import LLMChain, SequentialChain
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -93,8 +93,129 @@ def standardize_key_pointers(summary):
     
     return summary
 
+def create_sequential_chain(llm):
+    """Create a sequential chain for document summarization."""
+    
+    # PII protection instructions
+    pii_instructions = """
+    IMPORTANT: DO NOT include any personally identifiable information (PII) in your summary, including:
+    - Bank account numbers
+    - Credit card numbers
+    - Social security numbers
+    - Passport numbers
+    - Personal mobile numbers
+    If you encounter such information, DO NOT include it in your summary.
+    """
+    
+    # Step 1: Extract key information
+    extraction_prompt = PromptTemplate(
+        input_variables=["text"],
+        template=f"""{pii_instructions}
+        
+        Step 1: Extract key information from this circular document.
+        Focus on identifying:
+        - Regulatory requirements and compliance obligations
+        - New rules, amendments, or modifications
+        - Implementation dates and deadlines
+        - Penalties and consequences
+        - Required procedures and processes
+        - Reporting requirements
+        - Exemptions and special conditions
+        
+        Extract all relevant details with specific regulation numbers, dates, and requirements.
+        
+        Document text:
+        {{text}}
+        
+        Extracted information:
+        """
+    )
+    
+    # Step 2: Structure the summary
+    structuring_prompt = PromptTemplate(
+        input_variables=["extracted_info", "document_name"],
+        template="""Step 2: Structure the extracted information into a comprehensive summary.
+        
+        Create a summary with the following EXACT structure:
+        1. Document Name: {document_name}
+        2. Key Pointers:
+        
+        Transform the extracted information into detailed bullet points that include:
+        - Specific regulation name, number, or reference code
+        - Nature of the regulatory change
+        - Detailed compliance requirements
+        - Implementation timeline with specific dates
+        - Required actions and procedures
+        - Documentation and reporting requirements
+        - Penalties for non-compliance
+        - Impact on existing policies
+        - Applicable entities affected
+        - Exemptions or special conditions
+        
+        Each bullet point MUST:
+        * Start with a capitalized first letter
+        * End with a period
+        * Include specific regulatory details and dates
+        * Be comprehensive yet concise
+        
+        Extracted information to structure:
+        {extracted_info}
+        
+        Structured summary:
+        """
+    )
+    
+    # Step 3: Refine and finalize
+    refinement_prompt = PromptTemplate(
+        input_variables=["structured_summary"],
+        template="""Step 3: Refine and finalize the summary for maximum clarity and compliance focus.
+        
+        Review the structured summary and ensure:
+        - All critical compliance requirements are highlighted
+        - Dates and deadlines are clearly stated
+        - Regulatory references are accurate
+        - Bullet points are well-formatted and actionable
+        - The most important information is prioritized
+        - Language is clear and professional
+        
+        Structured summary to refine:
+        {structured_summary}
+        
+        Final refined summary:
+        """
+    )
+    
+    # Create individual chains
+    extraction_chain = LLMChain(
+        llm=llm,
+        prompt=extraction_prompt,
+        output_key="extracted_info"
+    )
+    
+    structuring_chain = LLMChain(
+        llm=llm,
+        prompt=structuring_prompt,
+        output_key="structured_summary"
+    )
+    
+    refinement_chain = LLMChain(
+        llm=llm,
+        prompt=refinement_prompt,
+        output_key="final_summary"
+    )
+    
+    # Create sequential chain
+    sequential_chain = SequentialChain(
+        chains=[extraction_chain, structuring_chain, refinement_chain],
+        input_variables=["text", "document_name"],
+        output_variables=["final_summary"],
+        verbose=True
+    )
+    
+    return sequential_chain
+
 def summarize_circular_documents(uploaded_files, api_key):
-    """Summarize PDF circulars and generate a consolidated PDF summary."""
+    """Summarize PDF circulars using sequential chain and generate a consolidated PDF summary."""
     # Validate API key
     if not api_key.startswith("sk-"):
         st.error("Invalid API key format. OpenAI API keys should start with 'sk-'.")
@@ -108,78 +229,8 @@ def summarize_circular_documents(uploaded_files, api_key):
         top_p=0.2
     )
 
-    # PII protection instructions
-    pii_instructions = """
-    IMPORTANT: DO NOT include any personally identifiable information (PII) in your summary, including:
-    - Bank account numbers
-    - Credit card numbers
-    - Social security numbers
-    - Passport numbers
-    - Personal mobile numbers
-    If you encounter such information, DO NOT include it in your summary.
-    """
-
-    # Prompts for summarization with consistent formatting
-    map_prompt = PromptTemplate(
-    input_variables=["text"],
-    template=f"""{pii_instructions}
-    Extract detailed compliance regulations, regulatory updates, and policy changes from this circular document.
-    Focus specifically on:
-    - Regulatory requirements and compliance obligations
-    - New rules, amendments, or modifications to existing regulations
-    - Implementation dates, deadlines, and timelines
-    - Penalties, sanctions, or consequences for non-compliance
-    - Specific procedures, processes, or steps required for compliance
-    - Reporting requirements and documentation needed
-    - Exemptions, exceptions, or special conditions
-    - Impact on existing policies or procedures
-    - Regulatory authority or issuing body requirements
-    
-    IMPORTANT: Extract granular details including:
-    - Specific regulation numbers, codes, or references
-    - Exact compliance dates and deadlines
-    - Detailed procedural requirements
-    - Quantitative thresholds, limits, or criteria
-    - Specific forms, formats, or documentation requirements
-    
-    Provide comprehensive details at the most granular level possible.\n\n{{text}}
-    """
-)
-
-    combine_prompt = PromptTemplate(
-    input_variables=["text"],
-    template="""Create a comprehensive compliance-focused summary with the following EXACT structure:
-    1. Document Name: [Name of the document without extension]
-    2. Key Pointers:
-    
-    For each compliance regulation or update, provide detailed bullet points that include:
-    - Specific regulation name, number, or reference code
-    - Nature of the regulatory change (new rule, amendment, modification, etc.)
-    - Detailed compliance requirements and obligations
-    - Implementation timeline with specific dates and deadlines
-    - Required actions, procedures, or processes
-    - Documentation, reporting, or filing requirements
-    - Penalties, consequences, or sanctions for non-compliance
-    - Impact on existing policies, procedures, or operations
-    - Applicable entities, sectors, or categories affected
-    - Exemptions, exceptions, or special conditions if any
-    - Contact information or regulatory authority details
-    
-    Each bullet point MUST:
-    * Start with a capitalized first letter
-    * End with a period
-    * Include specific regulatory details, dates, and requirements
-    * Mention exact compliance obligations and procedures
-    * Highlight critical deadlines and implementation dates
-    * Specify quantitative limits, thresholds, or criteria where applicable
-    * Avoid generic statements - focus on actionable compliance information
-    * Be comprehensive yet concise for each regulatory aspect
-    
-    Prioritize the most critical compliance requirements and regulatory updates that require immediate attention or action.
-    
-    Combine the following individual summaries into a cohesive compliance overview:\n\n{text}
-    """
-)
+    # Create sequential chain
+    sequential_chain = create_sequential_chain(llm)
 
     # Prepare PDF output
     pdf_output = BytesIO()
@@ -240,25 +291,55 @@ def summarize_circular_documents(uploaded_files, api_key):
         filtered_text = extract_english_text(text)
 
         if filtered_text.strip():
-            # Chunk the text
-            text_chunks = chunk_document(filtered_text)
-            docs = [Document(page_content=chunk) for chunk in text_chunks]
-
-            # Summarize using map-reduce chain
-            map_reduce_chain = load_summarize_chain(
-                llm,
-                chain_type="map_reduce",
-                map_prompt=map_prompt,
-                combine_prompt=combine_prompt
-            )
-            
-            output_summary = map_reduce_chain.invoke(docs)
-            
-            # Standardize the summary
-            summary = standardize_key_pointers(output_summary['output_text'])
-
-            # Extract document name from uploaded file
+            # For sequential chain, we'll process the entire document at once
+            # If the document is too large, we can chunk it and process each chunk
             doc_name = os.path.splitext(uploaded_file.name)[0]
+            
+            # Check if text is too long for a single processing
+            if len(filtered_text) > 15000:  # Adjust threshold as needed
+                # Chunk the text and process each chunk
+                text_chunks = chunk_document(filtered_text, chunk_size=12000, chunk_overlap=1000)
+                
+                chunk_summaries = []
+                for i, chunk in enumerate(text_chunks):
+                    try:
+                        # Process each chunk with sequential chain
+                        result = sequential_chain.invoke({
+                            "text": chunk,
+                            "document_name": f"{doc_name} (Part {i+1})"
+                        })
+                        chunk_summaries.append(result["final_summary"])
+                    except Exception as e:
+                        st.warning(f"Error processing chunk {i+1} of {doc_name}: {str(e)}")
+                        continue
+                
+                # Combine chunk summaries
+                if chunk_summaries:
+                    # Create a final summary by combining all chunk summaries
+                    combined_text = "\n\n".join(chunk_summaries)
+                    
+                    # Use a simple combination approach
+                    final_result = sequential_chain.invoke({
+                        "text": f"Combine and consolidate the following summaries into one comprehensive summary:\n\n{combined_text}",
+                        "document_name": doc_name
+                    })
+                    summary = final_result["final_summary"]
+                else:
+                    summary = f"1. Document Name: {doc_name}\n2. Key Pointers:\n- Unable to process document due to errors."
+            else:
+                # Process the entire document at once
+                try:
+                    result = sequential_chain.invoke({
+                        "text": filtered_text,
+                        "document_name": doc_name
+                    })
+                    summary = result["final_summary"]
+                except Exception as e:
+                    st.error(f"Error processing {doc_name}: {str(e)}")
+                    summary = f"1. Document Name: {doc_name}\n2. Key Pointers:\n- Error processing document: {str(e)}"
+
+            # Standardize the summary
+            summary = standardize_key_pointers(summary)
 
             # Format summary for PDF
             # Add document name
@@ -269,12 +350,19 @@ def summarize_circular_documents(uploaded_files, api_key):
             flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
             
             # Split summary into bullet points
-            key_pointers_section = summary.split('2. Key Pointers:')[1].strip()
-            bullet_points = key_pointers_section.split('\n')
-            
-            for point in bullet_points:
-                if point.strip():
-                    flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
+            if '2. Key Pointers:' in summary:
+                key_pointers_section = summary.split('2. Key Pointers:')[1].strip()
+                bullet_points = key_pointers_section.split('\n')
+                
+                for point in bullet_points:
+                    if point.strip():
+                        flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
+            else:
+                # Fallback if summary format is different
+                lines = summary.split('\n')
+                for line in lines:
+                    if line.strip() and not line.startswith('1. Document Name:'):
+                        flowables.append(Paragraph(line.strip(), styles['BulletPoint']))
             
             flowables.append(Spacer(1, 12))  # Add space between document summaries
 
@@ -287,7 +375,7 @@ def summarize_circular_documents(uploaded_files, api_key):
 def main():
     st.set_page_config(page_title="PDF Circular Summarizer", page_icon="📄")
     
-    st.title("🔍 PDF Circular Summarizer")
+    st.title("🔍 PDF Circular Summarizer (Sequential Chain)")
     
     # Sidebar for API Key input
     st.sidebar.header("Configuration")
@@ -310,7 +398,7 @@ def main():
             st.error("Please upload at least one PDF file")
             return
         
-        with st.spinner('Generating Summary...'):
+        with st.spinner('Generating Summary using Sequential Chain...'):
             try:
                 # Generate PDF summary
                 summary_pdf = summarize_circular_documents(uploaded_files, openai_api_key)
@@ -323,7 +411,7 @@ def main():
                         file_name=f"circulars_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf"
                     )
-                    st.success("Summary PDF generated successfully!")
+                    st.success("Summary PDF generated successfully using Sequential Chain!")
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
@@ -336,6 +424,11 @@ def main():
     2. Upload PDF circulars
     3. Click 'Summarize PDFs'
     4. Download the generated summary
+    
+    **Features:**
+    - Uses Sequential Chain for step-by-step processing
+    - Extracts → Structures → Refines summaries
+    - Handles large documents with chunking
     
     **Note:** Requires an OpenAI API key
     """)
