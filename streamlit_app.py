@@ -2,10 +2,9 @@ import streamlit as st
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ListStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 import tempfile
@@ -44,14 +43,17 @@ if uploaded_file and openai_api_key:
     llm = ChatOpenAI(model="gpt-4", temperature=0, api_key=openai_api_key)
 
     # Create chain
-    chain = create_stuff_documents_chain(llm, prompt)
+    chain = create_stuff_documents_chain(llm=llm, prompt=prompt)
+
+    # Combine all page contents into a single string for the context
+    full_context = "\n\n".join([page.page_content for page in pages])
 
     # Generate bullet points
-    summary_text = chain.invoke(pages)
+    summary_text = chain.invoke({"context": full_context})
 
     # Parse bullet points for PDF writing
     bullet_points = summary_text.split("\n")
-    bullet_points = [bp.strip("- ") for bp in bullet_points if bp.strip()]
+    bullet_points = [bp.strip("-• ") for bp in bullet_points if bp.strip()]
 
     # Generate PDF with ReportLab
     output_path = os.path.join(tempfile.gettempdir(), "summary_output.pdf")
