@@ -25,7 +25,7 @@ if uploaded_file and openai_api_key:
 
     # Load PDF as documents
     loader = PyPDFLoader(tmp_file_path)
-    pages = loader.load_and_split()
+    documents = loader.load()
 
     # Define Prompt Template
     prompt = PromptTemplate(
@@ -45,8 +45,8 @@ if uploaded_file and openai_api_key:
     # Create chain
     chain = create_stuff_documents_chain(llm=llm, prompt=prompt)
 
-    # Extract text from pages
-    full_context = "\n\n".join([page.page_content for page in pages])
+    # Combine all page content into a single string
+    full_context = "\n\n".join(doc.page_content for doc in documents)
 
     # Generate bullet points
     summary_text = chain.invoke({"context": full_context})
