@@ -618,19 +618,6 @@ def main():
                     file_name=f"summary_{st.session_state.filename.split('.')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                     mime="text/plain"
                 )
-    
-    # Enhanced footer with troubleshooting tips
-    st.markdown("---")
-    with st.expander("💡 Enhanced Processing Information"):
-        st.markdown("""
-        **Automatic Enhancements:**
-        - **Fixed Optimal Settings**: Chunk size (1500) and overlap (500) optimized for best results
-        - **Built-in Enhancement**: Automatic detail enhancement integrated into main process
-        - **Coverage Validation**: Automatic validation with additional enhancement if needed
-        - **GPT-4 Recommended**: Essential for capturing all technical details
-        - **PDF Only**: Optimized for PDF document processing
-        
-        """)
 
 if __name__ == "__main__":
     main()
