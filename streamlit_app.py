@@ -57,6 +57,112 @@ def chunk_document(text, chunk_size=4000, chunk_overlap=200):
     
     return text_splitter.split_text(text)
 
+def parse_summary_content(summary):
+    """
+    Parse the LLM summary to extract structured content including bullet points.
+    
+    Args:
+        summary (str): The generated summary from LLM
+    
+    Returns:
+        dict: Parsed content with sections and bullet points
+    """
+    content = {
+        'document_identity': '',
+        'title': '',
+        'issuing_authority': '',
+        'notification_date': '',
+        'effective_date': '',
+        'applicability': '',
+        'objective': '',
+        'chapter_summaries': [],
+        'regulatory_mandates': [],
+        'compliance_requirements': [],
+        'transitional_provisions': [],
+        'other_content': []
+    }
+    
+    # Split by common section headers
+    sections = re.split(r'\n(?=🔹|Document Identity|Title|Issuing Authority|Notification Date|Effective Date|Applicability|Objective|Chapter-wise Summary|Critical Regulatory Mandates|Compliance and Disclosure Requirements|Transitional Provisions)', summary)
+    
+    current_section = 'other_content'
+    
+    for section in sections:
+        section = section.strip()
+        if not section:
+            continue
+            
+        # Identify section type
+        if section.startswith('Document Identity'):
+            current_section = 'document_identity'
+            content[current_section] = section
+        elif section.startswith('Title'):
+            current_section = 'title'
+            content[current_section] = section
+        elif section.startswith('Issuing Authority'):
+            current_section = 'issuing_authority'
+            content[current_section] = section
+        elif section.startswith('Notification Date'):
+            current_section = 'notification_date'
+            content[current_section] = section
+        elif section.startswith('Effective Date'):
+            current_section = 'effective_date'
+            content[current_section] = section
+        elif section.startswith('Applicability'):
+            current_section = 'applicability'
+            content[current_section] = section
+        elif section.startswith('Objective'):
+            current_section = 'objective'
+            content[current_section] = section
+        elif 'Chapter-wise Summary' in section or 'Chapter' in section:
+            current_section = 'chapter_summaries'
+            content[current_section].append(section)
+        elif 'Critical Regulatory Mandates' in section or 'Regulatory Mandates' in section:
+            current_section = 'regulatory_mandates'
+            content[current_section].append(section)
+        elif 'Compliance and Disclosure' in section or 'Compliance Requirements' in section:
+            current_section = 'compliance_requirements'
+            content[current_section].append(section)
+        elif 'Transitional Provisions' in section or 'Transitional' in section:
+            current_section = 'transitional_provisions'
+            content[current_section].append(section)
+        else:
+            content['other_content'].append(section)
+    
+    return content
+
+def extract_bullet_points(text):
+    """
+    Extract bullet points from text, handling various formats.
+    
+    Args:
+        text (str): Text containing bullet points
+    
+    Returns:
+        list: List of cleaned bullet points
+    """
+    bullet_points = []
+    
+    # Split by lines
+    lines = text.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check if line is a bullet point (starts with -, •, *, number, etc.)
+        if re.match(r'^[-•*▪▫◦‣⁃]\s*', line) or re.match(r'^\d+[.)]\s*', line):
+            # Remove bullet markers and clean
+            clean_point = re.sub(r'^[-•*▪▫◦‣⁃\d.)\s]+', '', line).strip()
+            if clean_point:
+                bullet_points.append(clean_point)
+        elif line and not line.startswith(('Chapter', 'Section', 'Part', '🔹', 'Document', 'Title', 'Issuing', 'Notification', 'Effective', 'Applicability', 'Objective', 'Critical', 'Compliance', 'Transitional')):
+            # If it's not a header but has content, treat as potential bullet point
+            bullet_points.append(line)
+    
+    return bullet_points
+
 def standardize_key_pointers(summary):
     """
     Standardize key pointers to ensure consistent formatting.
@@ -144,13 +250,10 @@ Critical Regulatory Mandates
 
 Highlight key mandates such as:
 
-Board composition and committee requirements.
-
-Appointment norms for KMPs and Statutory Auditors.
-
-ESG framework, Risk Management, Compliance Reporting.
-
-Capital requirements and succession planning.
+- Board composition and committee requirements.
+- Appointment norms for KMPs and Statutory Auditors.
+- ESG framework, Risk Management, Compliance Reporting.
+- Capital requirements and succession planning.
 
 Compliance and Disclosure Requirements
 
@@ -170,6 +273,8 @@ Do not omit sub-points even if they seem repetitive.
 Ensure completeness: if a chapter lists multiple roles, functions, or exceptions—capture all.
 
 Avoid interpretation: Just extract and rephrase clearly without editorializing.
+
+Format all lists as proper bullet points using "-" or "•" symbols.
 
     Document Content:
     {{context}}
@@ -230,6 +335,103 @@ def summarize_single_document(text, document_name, llm):
     
     return summary
 
+def add_content_to_pdf(flowables, content, styles):
+    """
+    Add parsed content to PDF flowables with proper formatting.
+    
+    Args:
+        flowables (list): List of PDF flowables
+        content (dict): Parsed content dictionary
+        styles: ReportLab styles
+    """
+    
+    # Add each section with proper formatting
+    sections = [
+        ('document_identity', 'Document Identity'),
+        ('title', 'Title'),
+        ('issuing_authority', 'Issuing Authority'),
+        ('notification_date', 'Notification Date'),
+        ('effective_date', 'Effective Date'),
+        ('applicability', 'Applicability'),
+        ('objective', 'Objective / Purpose')
+    ]
+    
+    for key, header in sections:
+        if content[key]:
+            flowables.append(Paragraph(header, styles['Heading3']))
+            
+            # Extract bullet points if present
+            bullet_points = extract_bullet_points(content[key])
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                # Add as regular text if no bullet points
+                clean_text = re.sub(r'^' + re.escape(header) + r'\s*', '', content[key]).strip()
+                if clean_text:
+                    flowables.append(Paragraph(clean_text, styles['BodyText']))
+            
+            flowables.append(Spacer(1, 6))
+    
+    # Add chapter summaries
+    if content['chapter_summaries']:
+        flowables.append(Paragraph("Chapter-wise Summary", styles['Heading3']))
+        for chapter in content['chapter_summaries']:
+            bullet_points = extract_bullet_points(chapter)
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                flowables.append(Paragraph(chapter, styles['BodyText']))
+        flowables.append(Spacer(1, 6))
+    
+    # Add regulatory mandates
+    if content['regulatory_mandates']:
+        flowables.append(Paragraph("Critical Regulatory Mandates", styles['Heading3']))
+        for mandate in content['regulatory_mandates']:
+            bullet_points = extract_bullet_points(mandate)
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                flowables.append(Paragraph(mandate, styles['BodyText']))
+        flowables.append(Spacer(1, 6))
+    
+    # Add compliance requirements
+    if content['compliance_requirements']:
+        flowables.append(Paragraph("Compliance and Disclosure Requirements", styles['Heading3']))
+        for req in content['compliance_requirements']:
+            bullet_points = extract_bullet_points(req)
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                flowables.append(Paragraph(req, styles['BodyText']))
+        flowables.append(Spacer(1, 6))
+    
+    # Add transitional provisions
+    if content['transitional_provisions']:
+        flowables.append(Paragraph("Transitional Provisions / Clarifications", styles['Heading3']))
+        for provision in content['transitional_provisions']:
+            bullet_points = extract_bullet_points(provision)
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                flowables.append(Paragraph(provision, styles['BodyText']))
+        flowables.append(Spacer(1, 6))
+    
+    # Add other content
+    if content['other_content']:
+        for other in content['other_content']:
+            bullet_points = extract_bullet_points(other)
+            if bullet_points:
+                for point in bullet_points:
+                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
+            else:
+                flowables.append(Paragraph(other, styles['BodyText']))
+        flowables.append(Spacer(1, 6))
+
 def summarize_circular_documents(uploaded_files, api_key):
     """Summarize PDF circulars and generate a consolidated PDF summary."""
     # Validate API key
@@ -272,17 +474,17 @@ def summarize_circular_documents(uploaded_files, api_key):
         spaceAfter=6
     ))
 
-    # Create a custom bullet point style if not exists
-    if 'BulletPoint' not in styles:
-        styles.add(ParagraphStyle(
-            name='BulletPoint',
-            parent=styles['BodyText'],
-            firstLineIndent=-14,
-            leftIndent=10,
-            spaceBefore=6,
-            spaceAfter=6,
-            bulletIndent=0
-        ))
+    # Improved bullet point style
+    styles.add(ParagraphStyle(
+        name='BulletPoint',
+        parent=styles['BodyText'],
+        firstLineIndent=0,
+        leftIndent=20,
+        spaceBefore=3,
+        spaceAfter=3,
+        bulletIndent=0,
+        fontSize=10
+    ))
 
     flowables = []
 
@@ -318,33 +520,15 @@ def summarize_circular_documents(uploaded_files, api_key):
                 # Summarize the document
                 summary = summarize_single_document(filtered_text, doc_name, llm)
                 
-                # Standardize the summary
-                standardized_summary = standardize_key_pointers(summary)
+                # Parse the summary content
+                parsed_content = parse_summary_content(summary)
 
-                # Format summary for PDF
                 # Add document name
                 flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
                 flowables.append(Spacer(1, 6))
 
-                # Add "Key Pointers" section
-                flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
-
-                # Extract and format bullet points properly
-                try:
-                    key_pointers_section = standardized_summary.split('2. Key Pointers:')[1].strip()
-    
-                    # Normalize line breaks and clean extra whitespace
-                    bullet_points = [line.strip() for line in key_pointers_section.split('\n') if line.strip()]
-    
-                    for point in bullet_points:
-                        # Remove leading dashes or bullets
-                        clean_point = re.sub(r'^[-•*\d.)\s]+', '', point).strip()
-                        if clean_point:
-                            # Render each point with bullet
-                            flowables.append(Paragraph(f"• {clean_point}", styles['BulletPoint']))
-                except IndexError:
-                    # Fallback if summary format is different or '2. Key Pointers:' not found
-                    flowables.append(Paragraph(standardized_summary, styles['BodyText']))
+                # Add parsed content to PDF
+                add_content_to_pdf(flowables, parsed_content, styles)
                 
                 flowables.append(Spacer(1, 12))  # Add space between document summaries
             else:
@@ -443,6 +627,7 @@ def main():
     - PII protection
     - Customizable chunking
     - Progress tracking
+    - Improved bullet point formatting
     
     **Note:** Requires an OpenAI API key
     """)
