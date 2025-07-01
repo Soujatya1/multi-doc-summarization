@@ -200,7 +200,7 @@ def main():
         )
         
         # Model selection
-        model_options = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+        model_options = ["gpt-3.5-turbo", "gpt-4o", "gpt-4-turbo-preview"]
         selected_model = st.selectbox("Select Model", model_options)
         
         # Chunk size configuration
