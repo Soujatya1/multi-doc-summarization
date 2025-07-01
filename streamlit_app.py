@@ -10,13 +10,12 @@ import langdetect
 from langdetect.lang_detect_exception import LangDetectException
 
 # LangChain imports
-from langchain.document_loaders import PyPDFLoader, TextLoader
+from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain.schema import Document
-from langchain.chains.summarize import load_summarize_chain
 
 # ReportLab imports
 from reportlab.lib.pagesizes import letter, A4
@@ -54,19 +53,12 @@ def load_document(uploaded_file):
     """Load document from uploaded file with better error handling"""
     try:
         # Create a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             tmp_file_path = tmp_file.name
         
-        # Load based on file type
-        if uploaded_file.name.endswith('.pdf'):
-            loader = PyPDFLoader(tmp_file_path)
-        elif uploaded_file.name.endswith(('.txt', '.md')):
-            loader = TextLoader(tmp_file_path)
-        else:
-            st.error("Unsupported file type. Please upload PDF or TXT files.")
-            return None
-        
+        # Load PDF file
+        loader = PyPDFLoader(tmp_file_path)
         documents = loader.load()
         
         # Extract English text from each document - but preserve more content
@@ -104,7 +96,7 @@ def split_documents(documents, chunk_size=1500, chunk_overlap=500):
     )
     return text_splitter.split_documents(documents)
 
-def create_enhanced_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=False):
+def create_enhanced_summary_chain(api_key, model_name="gpt-4o"):
     """Create the enhanced summarization chain with built-in detail enhancement"""
     llm = ChatOpenAI(
         api_key=api_key,
@@ -113,105 +105,62 @@ def create_enhanced_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=F
         max_tokens=4000  # Ensure enough tokens for detailed output
     )
     
-    if use_map_reduce:
-        # For very long documents, use map-reduce approach
-        map_prompt = ChatPromptTemplate.from_template("""
-        Extract ALL key information from this document section. Focus on:
-        - Specific numbers, dates, percentages, monetary amounts
-        - Technical definitions and terminology
-        - Procedural requirements and steps
-        - Committee compositions and roles
-        - Compliance obligations and deadlines
-        - Approval processes and authorities
-        
-        Document section:
-        {context}
-        
-        Detailed extraction:
-        """)
-        
-        reduce_prompt = ChatPromptTemplate.from_template("""
-        Combine the following detailed extractions into a comprehensive, enhanced structured summary.
-        Preserve ALL specific details, numbers, dates, and technical requirements.
-        Organize into clear sections with detailed bullet points.
-        
-        ENHANCEMENT REQUIREMENTS:
-        - Cross-reference all extractions to ensure no details are missed
-        - Identify and fill any gaps in information
-        - Ensure all quantitative data is preserved
-        - Maintain technical accuracy and completeness
-        
-        Extractions to combine:
-        {context}
-        
-        Comprehensive enhanced structured summary:
-        """)
-        
-        return load_summarize_chain(
-            llm, 
-            chain_type="map_reduce",
-            map_prompt=map_prompt,
-            combine_prompt=reduce_prompt,
-            verbose=True
-        )
+    # Enhanced prompt template with built-in detail enhancement
+    prompt_template = ChatPromptTemplate.from_template("""
+    You are an expert document analyst. Your task is to create an EXHAUSTIVE, ENHANCED summary that captures EVERY important detail from the document.
+
+    CRITICAL EXTRACTION REQUIREMENTS:
+    1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
+    2. **CAPTURE COMPLETE DEFINITIONS**: Extract full definitions of technical terms, roles, and concepts
+    3. **DETAIL ALL PROCEDURES**: Include step-by-step processes, approval workflows, and operational requirements
+    4. **EXTRACT ORGANIZATIONAL DETAILS**: Committee structures, reporting relationships, roles, and responsibilities
+    5. **COMPLIANCE REQUIREMENTS**: All regulatory obligations, deadlines, reporting requirements, and penalties
+    6. **CONDITIONAL REQUIREMENTS**: Exceptions, special cases, and alternative procedures
+
+    ENHANCEMENT PROCESS:
+    - First pass: Extract all visible information systematically
+    - Second pass: Cross-reference and identify any missing details
+    - Third pass: Ensure all quantitative data and technical specifications are captured
+    - Final pass: Organize and structure for maximum clarity and completeness
+
+    FORMATTING REQUIREMENTS:
+    - Use hierarchical structure with clear section headers
+    - Create comprehensive bullet points that preserve ALL details
+    - Use sub-bullets for related details and specifications
+    - Bold important terms, amounts, and requirements
+    - Preserve technical language and regulatory terminology
+    - Include exact quotes for critical requirements (in quotation marks)
+
+    CONTENT ANALYSIS PRIORITIES:
+    1. **Quantitative Data**: Every number, percentage, amount, timeline, limit, or threshold
+    2. **Qualifications**: Required experience, skills, tenure, independence criteria
+    3. **Processes**: Approval steps, notification requirements, meeting procedures
+    4. **Compositions**: Committee sizes, member types, quorum requirements
+    5. **Timelines**: Deadlines, notice periods, tenure limits, meeting frequencies
+    6. **Authorities**: Who has what powers, approval rights, and responsibilities
+    7. **Exceptions**: Special circumstances, exemptions, alternative procedures
+
+    EXAMPLE STRUCTURE (adapt to actual content):
+    **[Section Title from Document]**
     
-    else:
-        # Enhanced prompt template with built-in detail enhancement
-        prompt_template = ChatPromptTemplate.from_template("""
-        You are an expert document analyst. Your task is to create an EXHAUSTIVE, ENHANCED summary that captures EVERY important detail from the document.
+    [Subsection]:
+    - Complete requirement with ALL specifications (include exact numbers/dates)
+        - Sub-requirement with precise details
+        - Additional specifications or conditions
+    - Next requirement with full technical details
+        - Related procedural steps
+        - Specific compliance obligations
 
-        CRITICAL EXTRACTION REQUIREMENTS:
-        1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
-        2. **CAPTURE COMPLETE DEFINITIONS**: Extract full definitions of technical terms, roles, and concepts
-        3. **DETAIL ALL PROCEDURES**: Include step-by-step processes, approval workflows, and operational requirements
-        4. **EXTRACT ORGANIZATIONAL DETAILS**: Committee structures, reporting relationships, roles, and responsibilities
-        5. **COMPLIANCE REQUIREMENTS**: All regulatory obligations, deadlines, reporting requirements, and penalties
-        6. **CONDITIONAL REQUIREMENTS**: Exceptions, special cases, and alternative procedures
-
-        ENHANCEMENT PROCESS:
-        - First pass: Extract all visible information systematically
-        - Second pass: Cross-reference and identify any missing details
-        - Third pass: Ensure all quantitative data and technical specifications are captured
-        - Final pass: Organize and structure for maximum clarity and completeness
-
-        FORMATTING REQUIREMENTS:
-        - Use hierarchical structure with clear section headers
-        - Create comprehensive bullet points that preserve ALL details
-        - Use sub-bullets for related details and specifications
-        - Bold important terms, amounts, and requirements
-        - Preserve technical language and regulatory terminology
-        - Include exact quotes for critical requirements (in quotation marks)
-
-        CONTENT ANALYSIS PRIORITIES:
-        1. **Quantitative Data**: Every number, percentage, amount, timeline, limit, or threshold
-        2. **Qualifications**: Required experience, skills, tenure, independence criteria
-        3. **Processes**: Approval steps, notification requirements, meeting procedures
-        4. **Compositions**: Committee sizes, member types, quorum requirements
-        5. **Timelines**: Deadlines, notice periods, tenure limits, meeting frequencies
-        6. **Authorities**: Who has what powers, approval rights, and responsibilities
-        7. **Exceptions**: Special circumstances, exemptions, alternative procedures
-
-        EXAMPLE STRUCTURE (adapt to actual content):
-        **[Section Title from Document]**
-        
-        [Subsection]:
-        - Complete requirement with ALL specifications (include exact numbers/dates)
-            - Sub-requirement with precise details
-            - Additional specifications or conditions
-        - Next requirement with full technical details
-            - Related procedural steps
-            - Specific compliance obligations
-
-        Document content:
-        {context}
-        
-        EXHAUSTIVE ENHANCED DETAILED SUMMARY (capture EVERY specification and requirement with built-in enhancement):
-        """)
-        
-        # Create the stuff documents chain
-        chain = create_stuff_documents_chain(llm, prompt_template)
-        
-        return chain
+    Document content:
+    {context}
+    
+    EXHAUSTIVE ENHANCED DETAILED SUMMARY (capture EVERY specification and requirement with built-in enhancement):
+    """)
+    
+    # Create the stuff documents chain
+    chain = create_stuff_documents_chain(llm, prompt_template)
+    
+    return chain
 
 def validate_summary_completeness(summary, original_chunks):
     """Validate if the summary captures key elements from the original document"""
@@ -231,16 +180,12 @@ def validate_summary_completeness(summary, original_chunks):
     
     return 1.0, set(), set()
 
-def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name, use_map_reduce=False):
+def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name):
     """Generate comprehensive summary with built-in enhancement"""
     
     # Step 1: Generate initial enhanced summary
-    chain = create_enhanced_summary_chain(api_key, model_name, use_map_reduce)
-    
-    if use_map_reduce:
-        initial_summary = chain.run(doc_chunks)
-    else:
-        initial_summary = chain.invoke({"context": doc_chunks})
+    chain = create_enhanced_summary_chain(api_key, model_name)
+    initial_summary = chain.invoke({"context": doc_chunks})
     
     # Step 2: Validate completeness
     coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
@@ -540,8 +485,6 @@ def main():
         st.text("• Chunk Overlap: 500 characters")
         st.text("• Enhanced Summary: Enabled")
         
-        use_map_reduce = st.checkbox("Use Map-Reduce for Long Documents", help="Better for very long documents (20+ pages)")
-        
         st.success("✅ Enhanced processing with automatic detail enhancement enabled")
     
     # Main interface
@@ -550,9 +493,9 @@ def main():
     with col1:
         st.header("📁 Upload Document")
         uploaded_file = st.file_uploader(
-            "Choose a file",
-            type=['pdf', 'txt', 'md'],
-            help="Upload PDF, TXT, or Markdown files for detailed analysis"
+            "Choose a PDF file",
+            type=['pdf'],
+            help="Upload PDF files for detailed analysis"
         )
         
         if uploaded_file is not None:
@@ -588,7 +531,7 @@ def main():
                         
                         # Generate comprehensive enhanced summary
                         summary, coverage = generate_comprehensive_enhanced_summary(
-                            doc_chunks, api_key, selected_model, use_map_reduce
+                            doc_chunks, api_key, selected_model
                         )
                         
                         # Store in session state
@@ -608,14 +551,12 @@ def main():
     if hasattr(st.session_state, 'summary') and st.session_state.summary:
         st.header("📋 Generated Enhanced Summary")
         
-        # Show summary metrics
-        col1, col2, col3 = st.columns(3)
+        # Show summary metrics (removed Summary Length)
+        col1, col2 = st.columns(2)
         with col1:
-            st.metric("Summary Length", f"{len(st.session_state.summary):,} chars")
-        with col2:
             if hasattr(st.session_state, 'coverage'):
                 st.metric("Detail Coverage", f"{st.session_state.coverage:.1%}")
-        with col3:
+        with col2:
             st.metric("Sections", len(st.session_state.structured_summary))
         
         # Display structured summary with better formatting
@@ -695,7 +636,7 @@ def main():
         - **Built-in Enhancement**: Automatic detail enhancement integrated into main process
         - **Coverage Validation**: Automatic validation with additional enhancement if needed
         - **GPT-4 Recommended**: Essential for capturing all technical details
-        - **Map-Reduce Option**: Available for very long documents (20+ pages)
+        - **PDF Only**: Optimized for PDF document processing
         
         """)
 
