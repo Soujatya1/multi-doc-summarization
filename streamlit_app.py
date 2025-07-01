@@ -246,9 +246,7 @@ def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name, use
     coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
     
     # Step 3: If coverage is insufficient, perform additional enhancement
-    if coverage < 0.8:
-        st.info("🔍 Performing additional detail enhancement to improve coverage...")
-        
+    if coverage < 0.8:        
         llm = ChatOpenAI(api_key=api_key, model_name=model_name, temperature=0.1)
         
         enhancement_prompt = ChatPromptTemplate.from_template("""
@@ -383,7 +381,7 @@ def parse_structured_summary(summary_text):
 def create_detailed_pdf_summary(structured_summary, original_filename, raw_summary):
     """Create PDF with enhanced formatting and better content organization"""
     buffer = BytesIO()
-    
+
     # Create PDF document with more generous margins
     doc = SimpleDocTemplate(
         buffer,
@@ -393,10 +391,10 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         topMargin=40,
         bottomMargin=40
     )
-    
+
     # Get styles and create enhanced custom styles
     styles = getSampleStyleSheet()
-    
+
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
@@ -405,7 +403,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         alignment=TA_CENTER,
         textColor='darkblue'
     )
-    
+
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading1'],
@@ -415,7 +413,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         textColor='darkblue',
         keepWithNext=True
     )
-    
+
     subsection_style = ParagraphStyle(
         'SubsectionHeader',
         parent=styles['Heading2'],
@@ -425,7 +423,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         textColor='darkgreen',
         keepWithNext=True
     )
-    
+
     bullet_style = ParagraphStyle(
         'BulletPoint',
         parent=styles['Normal'],
@@ -434,7 +432,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         leftIndent=20,
         bulletIndent=10,
     )
-    
+
     sub_bullet_style = ParagraphStyle(
         'SubBulletPoint',
         parent=styles['Normal'],
@@ -443,49 +441,47 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         leftIndent=40,
         bulletIndent=30,
     )
-    
+
     # Build content
     content = []
-    
-    # Title and metadata
-    content.append(Paragraph("Comprehensive Enhanced Document Analysis", title_style))
+
+    # Title and metadata with document name
+    content.append(Paragraph(f"Summary of {original_filename}", title_style))
     content.append(Spacer(1, 12))
-    
-    content.append(Paragraph(f"<b>Source Document:</b> {original_filename}", styles['Normal']))
-    content.append(Paragraph(f"<b>Analysis Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+
     content.append(Spacer(1, 20))
-    
+
     # Add structured content with better formatting
     if structured_summary:
         for i, section in enumerate(structured_summary):
             # Section title
             content.append(Paragraph(f"{i+1}. {section['title']}", section_style))
-            
+
             # Section points
             for point in section['points']:
-                if '\n        •' in point:
-                    main_point, sub_points = point.split('\n        •', 1)
+                if '\n        \u2022' in point:
+                    main_point, sub_points = point.split('\n        \u2022', 1)
                     content.append(Paragraph(f"• {main_point}", bullet_style))
-                    for sub_point in sub_points.split('\n        •'):
+                    for sub_point in sub_points.split('\n        \u2022'):
                         if sub_point.strip():
                             content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
                 else:
                     content.append(Paragraph(f"• {point}", bullet_style))
-            
+
             # Subsections
             for subsection in section['subsections']:
                 content.append(Paragraph(f"{subsection['title']}:", subsection_style))
-                
+
                 for point in subsection['points']:
-                    if '\n        •' in point:
-                        main_point, sub_points = point.split('\n        •', 1)
+                    if '\n        \u2022' in point:
+                        main_point, sub_points = point.split('\n        \u2022', 1)
                         content.append(Paragraph(f"• {main_point}", bullet_style))
-                        for sub_point in sub_points.split('\n        •'):
+                        for sub_point in sub_points.split('\n        \u2022'):
                             if sub_point.strip():
                                 content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
                     else:
                         content.append(Paragraph(f"• {point}", bullet_style))
-            
+
             # Add spacing between sections
             if i < len(structured_summary) - 1:
                 content.append(Spacer(1, 16))
@@ -495,7 +491,6 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
         paragraphs = raw_summary.split('\n\n')
         for para in paragraphs:
             if para.strip():
-                # Try to identify if it's a header or bullet point
                 if para.strip().startswith('**') and para.strip().endswith('**'):
                     content.append(Paragraph(para.strip('*'), section_style))
                 elif para.strip().startswith(('- ', '• ', '* ')):
@@ -503,11 +498,11 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
                 else:
                     content.append(Paragraph(para.strip(), styles['Normal']))
                 content.append(Spacer(1, 8))
-    
+
     # Build PDF
     doc.build(content)
     buffer.seek(0)
-    
+
     return buffer
 
 def main():
@@ -701,19 +696,6 @@ def main():
         - **GPT-4 Recommended**: Essential for capturing all technical details
         - **Map-Reduce Option**: Available for very long documents (20+ pages)
         
-        **Process Flow:**
-        1. ✅ Document loaded and processed with optimal chunk settings
-        2. ✅ Initial comprehensive summary generated with enhanced prompts
-        3. ✅ Automatic coverage validation performed
-        4. ✅ Additional enhancement applied if coverage < 80%
-        5. ✅ Final structured summary with maximum detail retention
-        
-        **What's New:**
-        - ✅ Fixed optimal chunk size (1500) and overlap (500)
-        - ✅ Integrated enhancement process (no separate checkbox)
-        - ✅ Automatic coverage improvement
-        - ✅ Enhanced validation and feedback
-        - ✅ Streamlined user experience
         """)
 
 if __name__ == "__main__":
