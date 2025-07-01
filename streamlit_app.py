@@ -57,150 +57,89 @@ def chunk_document(text, chunk_size=4000, chunk_overlap=200):
     
     return text_splitter.split_text(text)
 
-def parse_summary_content(summary):
+def parse_dynamic_summary(summary):
     """
-    Parse the LLM summary to extract structured content including bullet points.
+    Parse the LLM summary to dynamically extract sections and their bullet points.
     
     Args:
         summary (str): The generated summary from LLM
     
     Returns:
-        dict: Parsed content with sections and bullet points
+        dict: Parsed content with dynamic sections and bullet points
     """
     content = {
-        'document_identity': '',
-        'title': '',
-        'issuing_authority': '',
-        'notification_date': '',
-        'effective_date': '',
-        'applicability': '',
-        'objective': '',
-        'chapter_summaries': [],
-        'regulatory_mandates': [],
-        'compliance_requirements': [],
-        'transitional_provisions': [],
-        'other_content': []
+        'document_info': {},
+        'sections': []
     }
     
-    # Split by common section headers
-    sections = re.split(r'\n(?=🔹|Document Identity|Title|Issuing Authority|Notification Date|Effective Date|Applicability|Objective|Chapter-wise Summary|Critical Regulatory Mandates|Compliance and Disclosure Requirements|Transitional Provisions)', summary)
+    # Split by lines to process
+    lines = summary.split('\n')
+    current_section = None
+    current_section_content = []
     
-    current_section = 'other_content'
-    
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-            
-        # Identify section type
-        if section.startswith('Document Identity'):
-            current_section = 'document_identity'
-            content[current_section] = section
-        elif section.startswith('Title'):
-            current_section = 'title'
-            content[current_section] = section
-        elif section.startswith('Issuing Authority'):
-            current_section = 'issuing_authority'
-            content[current_section] = section
-        elif section.startswith('Notification Date'):
-            current_section = 'notification_date'
-            content[current_section] = section
-        elif section.startswith('Effective Date'):
-            current_section = 'effective_date'
-            content[current_section] = section
-        elif section.startswith('Applicability'):
-            current_section = 'applicability'
-            content[current_section] = section
-        elif section.startswith('Objective'):
-            current_section = 'objective'
-            content[current_section] = section
-        elif 'Chapter-wise Summary' in section or 'Chapter' in section:
-            current_section = 'chapter_summaries'
-            content[current_section].append(section)
-        elif 'Critical Regulatory Mandates' in section or 'Regulatory Mandates' in section:
-            current_section = 'regulatory_mandates'
-            content[current_section].append(section)
-        elif 'Compliance and Disclosure' in section or 'Compliance Requirements' in section:
-            current_section = 'compliance_requirements'
-            content[current_section].append(section)
-        elif 'Transitional Provisions' in section or 'Transitional' in section:
-            current_section = 'transitional_provisions'
-            content[current_section].append(section)
-        else:
-            content['other_content'].append(section)
-    
-    return content
-
-def extract_bullet_points(text):
-    """
-    Extract bullet points from text, handling various formats.
-    
-    Args:
-        text (str): Text containing bullet points
-    
-    Returns:
-        list: List of cleaned bullet points
-    """
-    bullet_points = []
-    
-    # Split by lines
-    lines = text.split('\n')
+    # Common document info headers to capture
+    doc_info_headers = [
+        'document identity', 'title', 'issuing authority', 'notification date', 
+        'effective date', 'applicability', 'objective', 'purpose'
+    ]
     
     for line in lines:
         line = line.strip()
         if not line:
             continue
+        
+        # Remove emoji and special characters from the beginning
+        clean_line = re.sub(r'^[🔹📄📋📊🔍✅❗️⚠️]*\s*', '', line)
+        
+        # Check if this is a section header (not a bullet point)
+        is_bullet = re.match(r'^[-•*▪▫◦‣⁃]\s*', line) or re.match(r'^\d+[.)]\s*', line)
+        
+        # Check if this looks like a header (starts with capital, ends with colon, etc.)
+        is_header = (
+            not is_bullet and 
+            (line.endswith(':') or 
+             re.match(r'^[A-Z][^.]*[A-Za-z]$', clean_line) or
+             any(keyword in clean_line.lower() for keyword in ['chapter', 'section', 'part', 'article', 'rule', 'regulation', 'provision', 'requirement', 'mandate', 'compliance', 'disclosure']))
+        )
+        
+        # Check if it's document info
+        is_doc_info = any(header in clean_line.lower() for header in doc_info_headers)
+        
+        if is_doc_info and not is_bullet:
+            # Store document information
+            key = clean_line.lower().replace(':', '').strip()
+            content['document_info'][key] = clean_line
+        elif is_header and not is_bullet:
+            # Save previous section if exists
+            if current_section:
+                content['sections'].append({
+                    'header': current_section,
+                    'content': current_section_content.copy()
+                })
             
-        # Check if line is a bullet point (starts with -, •, *, number, etc.)
-        if re.match(r'^[-•*▪▫◦‣⁃]\s*', line) or re.match(r'^\d+[.)]\s*', line):
-            # Remove bullet markers and clean
-            clean_point = re.sub(r'^[-•*▪▫◦‣⁃\d.)\s]+', '', line).strip()
-            if clean_point:
-                bullet_points.append(clean_point)
-        elif line and not line.startswith(('Chapter', 'Section', 'Part', '🔹', 'Document', 'Title', 'Issuing', 'Notification', 'Effective', 'Applicability', 'Objective', 'Critical', 'Compliance', 'Transitional')):
-            # If it's not a header but has content, treat as potential bullet point
-            bullet_points.append(line)
+            # Start new section
+            current_section = clean_line.rstrip(':')
+            current_section_content = []
+        else:
+            # Add content to current section
+            if current_section:
+                if is_bullet:
+                    # Clean bullet point
+                    bullet_text = re.sub(r'^[-•*▪▫◦‣⁃\d.)\s]+', '', line).strip()
+                    if bullet_text:
+                        current_section_content.append(bullet_text)
+                else:
+                    # Regular content that might be part of bullet points or descriptions
+                    current_section_content.append(line)
     
-    return bullet_points
-
-def standardize_key_pointers(summary):
-    """
-    Standardize key pointers to ensure consistent formatting.
+    # Don't forget the last section
+    if current_section and current_section_content:
+        content['sections'].append({
+            'header': current_section,
+            'content': current_section_content.copy()
+        })
     
-    Args:
-        summary (str): The generated summary
-    
-    Returns:
-        str: Standardized summary with consistent key pointers
-    """
-    # Split the summary into sections
-    sections = summary.split('2. Key Pointers:')
-    
-    if len(sections) > 1:
-        # Extract the key pointers
-        pointers = sections[1].strip().split('\n')
-        
-        # Clean and standardize pointers
-        cleaned_pointers = []
-        for pointer in pointers:
-            # Remove any bullet points or numbering
-            clean_pointer = re.sub(r'^[-•*\d.)\s]+', '', pointer).strip()
-            
-            # Capitalize first letter, ensure it ends with a period
-            if clean_pointer:
-                clean_pointer = clean_pointer[0].upper() + clean_pointer[1:]
-                if not clean_pointer.endswith('.'):
-                    clean_pointer += '.'
-                
-                cleaned_pointers.append(clean_pointer)
-        
-        # Reconstruct the summary with standardized pointers
-        standardized_summary = f"{sections[0].strip()}\n\n2. Key Pointers:\n"
-        standardized_summary += '\n'.join([f"- {point}" for point in cleaned_pointers])
-        
-        return standardized_summary
-    
-    return summary
+    return content
 
 def create_document_summary_chain(llm):
     
@@ -212,74 +151,79 @@ def create_document_summary_chain(llm):
     Replace with generic terms like [REDACTED] if encountered.
     """
 
-    # Regulatory-focused prompt template
+    # Dynamic regulatory-focused prompt template
     prompt_template = f"""{pii_instructions}
 
-    You are a senior regulatory analyst specialized in compliance documentation. Read and extract all relevant details from the uploaded regulatory document. Your task is to produce a highly accurate, structured, and complete summary of the document as per the following format:
+You are a senior regulatory analyst specialized in compliance documentation. Analyze the uploaded regulatory document and create a comprehensive, structured summary. 
 
-🔹 Output Format:
-Document Identity
+IMPORTANT FORMATTING INSTRUCTIONS:
+1. Identify ALL actual chapters, sections, parts, or major headings present in the document
+2. Use the EXACT chapter/section names from the original document as headers
+3. Under each header, provide bullet points using "-" symbol
+4. Ensure each bullet point is on a separate line
+5. Do not create generic sections - use only what exists in the document
 
-Title
+OUTPUT STRUCTURE:
 
-Issuing Authority
+Document Identity:
+[Extract document title, issuing authority, dates, etc.]
 
-Notification Date & Gazette Reference
+Title:
+[Official document title]
 
-Effective Date
+Issuing Authority:
+[Who issued this document]
 
-Applicability (including inclusions and exclusions)
+Notification Date:
+[When was it notified]
 
-Objective / Purpose
+Effective Date:
+[When does it become effective]
 
-Clearly list the purpose(s) stated in the regulation.
+Applicability:
+[Who/what does this apply to]
 
-Chapter-wise Summary
+Objective:
+[Main purpose of the regulation]
 
-For each Chapter (or Part), use the format:
+[ACTUAL CHAPTER/SECTION NAME FROM DOCUMENT]:
+- [Key point 1]
+- [Key point 2]
+- [Key point 3]
 
-Chapter Name (or Section title if no chaptering)
+[NEXT ACTUAL CHAPTER/SECTION NAME FROM DOCUMENT]:
+- [Key point 1]
+- [Key point 2]
+- [Key point 3]
 
-Provide a bullet-point list of rules, requirements, roles, and key conditions.
+[Continue with all actual chapters/sections found in the document]
 
-Mention mandatory thresholds, timelines, exemptions, or penalties.
+Critical Regulatory Mandates:
+- [Key mandate 1]
+- [Key mandate 2]
+- [Key mandate 3]
 
-Include committee types, responsibilities, and special cases.
+Compliance and Disclosure Requirements:
+- [Requirement 1]
+- [Requirement 2]
+- [Requirement 3]
 
-Critical Regulatory Mandates
+Transitional Provisions:
+- [Provision 1]
+- [Provision 2]
 
-Highlight key mandates such as:
+CRITICAL RULES:
+- Use ONLY the actual chapter/section headings found in the source document
+- Do not create generic chapter names
+- Ensure every bullet point starts with "-" and is on its own line
+- Extract ALL significant rules, requirements, roles, and conditions
+- Include specific thresholds, timelines, exemptions, penalties
+- Mention committee types, responsibilities, and special cases
 
-- Board composition and committee requirements.
-- Appointment norms for KMPs and Statutory Auditors.
-- ESG framework, Risk Management, Compliance Reporting.
-- Capital requirements and succession planning.
+Document Content:
+{{context}}
 
-Compliance and Disclosure Requirements
-
-Mention roles like Chief Compliance Officer (CCO) and reporting frequency.
-
-Note what must be filed with the Authority and when.
-
-Transitional Provisions / Clarifications
-
-Detail any transitional guidelines, future circulars, or powers reserved by the Authority.
-
-🔹 Key Instructions:
-Use official terminology (e.g., Independent Directors, Board of Insurers, KMPs).
-
-Do not omit sub-points even if they seem repetitive.
-
-Ensure completeness: if a chapter lists multiple roles, functions, or exceptions—capture all.
-
-Avoid interpretation: Just extract and rephrase clearly without editorializing.
-
-Format all lists as proper bullet points using "-" or "•" symbols.
-
-    Document Content:
-    {{context}}
-
-    Summarize the following PDF using the prompt format above"""
+Analyze and summarize the document following the exact structure above, using the actual chapter/section names from the source document."""
 
     prompt = PromptTemplate(
         input_variables=["context"],
@@ -324,113 +268,62 @@ def summarize_single_document(text, document_name, llm):
             final_docs = [Document(page_content=combined_text, metadata={"source": document_name})]
             summary = chain.invoke({"context": final_docs})
         else:
-            summary = f"1. Document Name: {document_name}\n2. Key Pointers:\n- Unable to process document due to errors."
+            summary = f"Document Name: {document_name}\nError: Unable to process document due to errors."
     else:
         # Process all chunks at once
         try:
             summary = chain.invoke({"context": docs})
         except Exception as e:
             st.error(f"Error processing document {document_name}: {str(e)}")
-            summary = f"1. Document Name: {document_name}\n2. Key Pointers:\n- Unable to process document due to error: {str(e)}"
+            summary = f"Document Name: {document_name}\nError: Unable to process document due to error: {str(e)}"
     
     return summary
 
-def add_content_to_pdf(flowables, content, styles):
+def add_parsed_content_to_pdf(flowables, parsed_content, styles, doc_name):
     """
-    Add parsed content to PDF flowables with proper formatting.
+    Add parsed content to PDF flowables with proper dynamic formatting.
     
     Args:
         flowables (list): List of PDF flowables
-        content (dict): Parsed content dictionary
+        parsed_content (dict): Parsed content dictionary
         styles: ReportLab styles
+        doc_name (str): Document name
     """
     
-    # Add each section with proper formatting
-    sections = [
-        ('document_identity', 'Document Identity'),
-        ('title', 'Title'),
-        ('issuing_authority', 'Issuing Authority'),
-        ('notification_date', 'Notification Date'),
-        ('effective_date', 'Effective Date'),
-        ('applicability', 'Applicability'),
-        ('objective', 'Objective / Purpose')
-    ]
+    # Add document name
+    flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
+    flowables.append(Spacer(1, 8))
     
-    for key, header in sections:
-        if content[key]:
-            flowables.append(Paragraph(header, styles['Heading3']))
-            
-            # Extract bullet points if present
-            bullet_points = extract_bullet_points(content[key])
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                # Add as regular text if no bullet points
-                clean_text = re.sub(r'^' + re.escape(header) + r'\s*', '', content[key]).strip()
-                if clean_text:
-                    flowables.append(Paragraph(clean_text, styles['BodyText']))
-            
-            flowables.append(Spacer(1, 6))
+    # Add document information section
+    if parsed_content['document_info']:
+        flowables.append(Paragraph("Document Information", styles['Heading3']))
+        for key, value in parsed_content['document_info'].items():
+            if value:
+                flowables.append(Paragraph(value, styles['BodyText']))
+        flowables.append(Spacer(1, 8))
     
-    # Add chapter summaries
-    if content['chapter_summaries']:
-        flowables.append(Paragraph("Chapter-wise Summary", styles['Heading3']))
-        for chapter in content['chapter_summaries']:
-            bullet_points = extract_bullet_points(chapter)
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                flowables.append(Paragraph(chapter, styles['BodyText']))
-        flowables.append(Spacer(1, 6))
+    # Add all dynamic sections
+    for section in parsed_content['sections']:
+        header = section['header']
+        content_items = section['content']
+        
+        # Add section header
+        flowables.append(Paragraph(header, styles['Heading3']))
+        flowables.append(Spacer(1, 4))
+        
+        # Add bullet points for this section
+        if content_items:
+            for item in content_items:
+                if item.strip():
+                    # Clean the item (remove any existing bullets)
+                    clean_item = re.sub(r'^[-•*▪▫◦‣⁃\d.)\s]*', '', item).strip()
+                    if clean_item:
+                        flowables.append(Paragraph(f"• {clean_item}", styles['BulletPoint']))
+        
+        flowables.append(Spacer(1, 8))
     
-    # Add regulatory mandates
-    if content['regulatory_mandates']:
-        flowables.append(Paragraph("Critical Regulatory Mandates", styles['Heading3']))
-        for mandate in content['regulatory_mandates']:
-            bullet_points = extract_bullet_points(mandate)
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                flowables.append(Paragraph(mandate, styles['BodyText']))
-        flowables.append(Spacer(1, 6))
-    
-    # Add compliance requirements
-    if content['compliance_requirements']:
-        flowables.append(Paragraph("Compliance and Disclosure Requirements", styles['Heading3']))
-        for req in content['compliance_requirements']:
-            bullet_points = extract_bullet_points(req)
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                flowables.append(Paragraph(req, styles['BodyText']))
-        flowables.append(Spacer(1, 6))
-    
-    # Add transitional provisions
-    if content['transitional_provisions']:
-        flowables.append(Paragraph("Transitional Provisions / Clarifications", styles['Heading3']))
-        for provision in content['transitional_provisions']:
-            bullet_points = extract_bullet_points(provision)
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                flowables.append(Paragraph(provision, styles['BodyText']))
-        flowables.append(Spacer(1, 6))
-    
-    # Add other content
-    if content['other_content']:
-        for other in content['other_content']:
-            bullet_points = extract_bullet_points(other)
-            if bullet_points:
-                for point in bullet_points:
-                    flowables.append(Paragraph(f"• {point}", styles['BulletPoint']))
-            else:
-                flowables.append(Paragraph(other, styles['BodyText']))
-        flowables.append(Spacer(1, 6))
+    # Add a separator between documents
+    flowables.append(Spacer(1, 12))
 
 def summarize_circular_documents(uploaded_files, api_key):
     """Summarize PDF circulars and generate a consolidated PDF summary."""
@@ -443,8 +336,8 @@ def summarize_circular_documents(uploaded_files, api_key):
     llm = ChatOpenAI(
         openai_api_key=api_key,
         model_name="gpt-4o-2024-08-06",
-        temperature=0.2,
-        top_p=0.2
+        temperature=0.1,  # Lower temperature for more consistent formatting
+        top_p=0.1
     )
 
     # Prepare PDF output
@@ -460,37 +353,52 @@ def summarize_circular_documents(uploaded_files, api_key):
     styles.add(ParagraphStyle(
         name='MainTitle',
         parent=styles['Title'],
-        fontSize=16,
+        fontSize=18,
         textColor='navy',
         alignment=1,  # Center alignment
-        spaceAfter=12
+        spaceAfter=16,
+        fontName='Helvetica-Bold'
     ))
 
     styles.add(ParagraphStyle(
         name='DocumentName',
-        parent=styles['Heading2'],
+        parent=styles['Heading1'],
         textColor='darkblue',
         fontSize=14,
-        spaceAfter=6
+        spaceAfter=8,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
     ))
 
-    # Improved bullet point style
+    # Enhanced bullet point style
     styles.add(ParagraphStyle(
         name='BulletPoint',
         parent=styles['BodyText'],
         firstLineIndent=0,
-        leftIndent=20,
-        spaceBefore=3,
-        spaceAfter=3,
-        bulletIndent=0,
-        fontSize=10
+        leftIndent=24,
+        spaceBefore=2,
+        spaceAfter=2,
+        bulletIndent=12,
+        fontSize=10,
+        fontName='Helvetica'
+    ))
+
+    # Enhanced heading style for dynamic sections
+    styles.add(ParagraphStyle(
+        name='SectionHeader',
+        parent=styles['Heading3'],
+        textColor='darkgreen',
+        fontSize=12,
+        spaceAfter=4,
+        spaceBefore=8,
+        fontName='Helvetica-Bold'
     ))
 
     flowables = []
 
-    # Add Consolidated Overview Summary header
-    flowables.append(Paragraph("Consolidated Document Summary", styles['MainTitle']))
-    flowables.append(Spacer(1, 12))
+    # Add main title
+    flowables.append(Paragraph("Consolidated Regulatory Document Summary", styles['MainTitle']))
+    flowables.append(Spacer(1, 16))
 
     # Process each uploaded PDF file
     progress_bar = st.progress(0)
@@ -520,17 +428,12 @@ def summarize_circular_documents(uploaded_files, api_key):
                 # Summarize the document
                 summary = summarize_single_document(filtered_text, doc_name, llm)
                 
-                # Parse the summary content
-                parsed_content = parse_summary_content(summary)
+                # Parse the summary content dynamically
+                parsed_content = parse_dynamic_summary(summary)
 
-                # Add document name
-                flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
-                flowables.append(Spacer(1, 6))
-
-                # Add parsed content to PDF
-                add_content_to_pdf(flowables, parsed_content, styles)
+                # Add parsed content to PDF with dynamic sections
+                add_parsed_content_to_pdf(flowables, parsed_content, styles, doc_name)
                 
-                flowables.append(Spacer(1, 12))  # Add space between document summaries
             else:
                 st.warning(f"No readable text found in {uploaded_file.name}")
                 
@@ -551,7 +454,7 @@ def main():
     st.set_page_config(page_title="PDF Circular Summarizer", page_icon="📄")
     
     st.title("🔍 PDF Circular Summarizer")
-    st.markdown("*Powered by LangChain's create_stuff_documents_chain*")
+    st.markdown("*Powered by LangChain with Dynamic Section Detection*")
     
     # Sidebar for API Key input
     st.sidebar.header("Configuration")
@@ -567,7 +470,7 @@ def main():
         "Upload PDF Circulars", 
         type=['pdf'], 
         accept_multiple_files=True,
-        help="Upload one or more PDF files to generate a consolidated summary"
+        help="Upload one or more PDF files to generate a consolidated summary with dynamic section detection"
     )
     
     # Display uploaded files
@@ -586,15 +489,15 @@ def main():
             st.error("Please upload at least one PDF file")
             return
         
-        with st.spinner('Generating Summary...'):
+        with st.spinner('Generating Summary with Dynamic Section Detection...'):
             try:
-                # Generate PDF summary with custom chunk settings
+                # Generate PDF summary with dynamic section detection
                 summary_pdf = summarize_circular_documents(uploaded_files, openai_api_key)
                 
                 if summary_pdf:
                     # Create download button
                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f"circulars_summary_{timestamp}.pdf"
+                    filename = f"dynamic_circulars_summary_{timestamp}.pdf"
                     
                     st.download_button(
                         label="📥 Download Summary PDF",
@@ -602,7 +505,7 @@ def main():
                         file_name=filename,
                         mime="application/pdf"
                     )
-                    st.success("✅ Summary PDF generated successfully!")
+                    st.success("✅ Summary PDF generated successfully with dynamic sections!")
                     st.balloons()
                 else:
                     st.error("Failed to generate summary PDF")
@@ -622,19 +525,20 @@ def main():
     5. Download the generated summary
     
     ### Features
+    - **Dynamic Section Detection**: Automatically identifies actual chapters/sections from each document
     - Modern LangChain implementation
     - Batch processing for large documents
     - PII protection
     - Customizable chunking
     - Progress tracking
-    - Improved bullet point formatting
+    - Smart bullet point formatting
     
     **Note:** Requires an OpenAI API key
     """)
     
     # Footer
     st.markdown("---")
-    st.markdown("*Built with Streamlit and LangChain*")
+    st.markdown("*Built with Streamlit and LangChain - Now with Dynamic Section Detection*")
 
 if __name__ == "__main__":
     main()
