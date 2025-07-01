@@ -1,8 +1,13 @@
 import streamlit as st
 import tempfile
 import os
+import re
 from io import BytesIO
 from datetime import datetime
+
+# Language detection
+import langdetect
+from langdetect.lang_detect_exception import LangDetectException
 
 # LangChain imports
 from langchain.document_loaders import PyPDFLoader, TextLoader
@@ -18,6 +23,27 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
+def extract_english_text(text):
+    """Extract English words from the given text."""
+    try:
+        words = re.findall(r'\b\w+\b', text)
+        
+        english_words = []
+        for word in words:
+            try:
+                if len(word) > 1:
+                    lang = langdetect.detect(word)
+                    if lang == 'en':
+                        english_words.append(word)
+            except LangDetectException:
+                continue
+        
+        return ' '.join(english_words)
+    
+    except Exception as e:
+        st.error(f"Language error: {e}")
+        return text
 
 def load_document(uploaded_file):
     """Load document from uploaded file"""
@@ -37,6 +63,10 @@ def load_document(uploaded_file):
             return None
         
         documents = loader.load()
+        
+        # Extract English text from each document
+        for doc in documents:
+            doc.page_content = extract_english_text(doc.page_content)
         
         # Clean up temporary file
         os.unlink(tmp_file_path)
@@ -205,9 +235,11 @@ def main():
         model_options = ["gpt-3.5-turbo", "gpt-4o", "gpt-4-turbo-preview"]
         selected_model = st.selectbox("Select Model", model_options)
         
-        # Chunk size configuration
-        chunk_size = st.slider("Chunk Size", 500, 2000, 1000)
-        chunk_overlap = st.slider("Chunk Overlap", 50, 500, 200)
+        # Fixed chunk size and overlap (display only)
+        st.info("📊 **Text Processing Settings**")
+        st.text("Chunk Size: 1000 characters")
+        st.text("Chunk Overlap: 200 characters")
+        st.text("English Text Extraction: Enabled")
     
     # Main interface
     col1, col2 = st.columns([1, 1])
@@ -242,8 +274,8 @@ def main():
                         if documents is None:
                             st.stop()
                         
-                        # Split documents
-                        doc_chunks = split_documents(documents, chunk_size, chunk_overlap)
+                        # Split documents with fixed chunk size and overlap
+                        doc_chunks = split_documents(documents, chunk_size=1000, chunk_overlap=200)
                         st.info(f"Document split into {len(doc_chunks)} chunks")
                         
                         # Create summary chain
