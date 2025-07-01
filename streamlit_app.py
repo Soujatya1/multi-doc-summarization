@@ -123,8 +123,9 @@ def summarize_circular_documents(uploaded_files, api_key):
     map_prompt = PromptTemplate(
         input_variables=["text"],
         template=f"""{pii_instructions}
-        Extract the highlights, the main ideas, purpose, and important insights
+        Extract the detailed highlights, the main ideas, purpose, and important insights
         Focus on the level of details, circular updates, the names/specified updates
+        PLEASE focus on extracting detailed descriptions and at a granular level
         Always include the key components, updates and specifications mentioned, important circular updates.\n\n{{text}}
         """
     )
