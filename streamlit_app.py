@@ -94,8 +94,8 @@ def load_document(uploaded_file):
         st.error(f"Error loading document: {str(e)}")
         return None
 
-def split_documents(documents, chunk_size=3000, chunk_overlap=500):
-    """Split documents into chunks with better overlap for context preservation"""
+def split_documents(documents, chunk_size=1500, chunk_overlap=500):
+    """Split documents into chunks with fixed optimal settings"""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -104,8 +104,8 @@ def split_documents(documents, chunk_size=3000, chunk_overlap=500):
     )
     return text_splitter.split_documents(documents)
 
-def create_detailed_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=False):
-    """Create the detailed summarization chain with option for map-reduce"""
+def create_enhanced_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=False):
+    """Create the enhanced summarization chain with built-in detail enhancement"""
     llm = ChatOpenAI(
         api_key=api_key,
         model_name=model_name,
@@ -131,14 +131,20 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=F
         """)
         
         reduce_prompt = ChatPromptTemplate.from_template("""
-        Combine the following detailed extractions into a comprehensive, structured summary.
+        Combine the following detailed extractions into a comprehensive, enhanced structured summary.
         Preserve ALL specific details, numbers, dates, and technical requirements.
         Organize into clear sections with detailed bullet points.
+        
+        ENHANCEMENT REQUIREMENTS:
+        - Cross-reference all extractions to ensure no details are missed
+        - Identify and fill any gaps in information
+        - Ensure all quantitative data is preserved
+        - Maintain technical accuracy and completeness
         
         Extractions to combine:
         {context}
         
-        Comprehensive structured summary:
+        Comprehensive enhanced structured summary:
         """)
         
         return load_summarize_chain(
@@ -150,9 +156,9 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=F
         )
     
     else:
-        # Enhanced prompt template for detailed structured summary
+        # Enhanced prompt template with built-in detail enhancement
         prompt_template = ChatPromptTemplate.from_template("""
-        You are an expert document analyst. Your task is to create an EXHAUSTIVE summary that captures EVERY important detail from the document.
+        You are an expert document analyst. Your task is to create an EXHAUSTIVE, ENHANCED summary that captures EVERY important detail from the document.
 
         CRITICAL EXTRACTION REQUIREMENTS:
         1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
@@ -161,6 +167,12 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=F
         4. **EXTRACT ORGANIZATIONAL DETAILS**: Committee structures, reporting relationships, roles, and responsibilities
         5. **COMPLIANCE REQUIREMENTS**: All regulatory obligations, deadlines, reporting requirements, and penalties
         6. **CONDITIONAL REQUIREMENTS**: Exceptions, special cases, and alternative procedures
+
+        ENHANCEMENT PROCESS:
+        - First pass: Extract all visible information systematically
+        - Second pass: Cross-reference and identify any missing details
+        - Third pass: Ensure all quantitative data and technical specifications are captured
+        - Final pass: Organize and structure for maximum clarity and completeness
 
         FORMATTING REQUIREMENTS:
         - Use hierarchical structure with clear section headers
@@ -193,7 +205,7 @@ def create_detailed_summary_chain(api_key, model_name="gpt-4o", use_map_reduce=F
         Document content:
         {context}
         
-        EXHAUSTIVE DETAILED SUMMARY (capture EVERY specification and requirement):
+        EXHAUSTIVE ENHANCED DETAILED SUMMARY (capture EVERY specification and requirement with built-in enhancement):
         """)
         
         # Create the stuff documents chain
@@ -219,35 +231,76 @@ def validate_summary_completeness(summary, original_chunks):
     
     return 1.0, set(), set()
 
-def enhance_summary_with_missing_details(summary, original_chunks, api_key, model_name):
-    """Enhance summary by identifying and adding missing critical details"""
-    llm = ChatOpenAI(api_key=api_key, model_name=model_name, temperature=0.1)
+def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name, use_map_reduce=False):
+    """Generate comprehensive summary with built-in enhancement"""
     
-    enhancement_prompt = ChatPromptTemplate.from_template("""
-    Review the following summary against the original document chunks to identify any missing critical details.
-    Add any missing specifications, numbers, procedures, or requirements that should be included.
+    # Step 1: Generate initial enhanced summary
+    chain = create_enhanced_summary_chain(api_key, model_name, use_map_reduce)
     
-    Original Summary:
-    {summary}
+    if use_map_reduce:
+        initial_summary = chain.run(doc_chunks)
+    else:
+        initial_summary = chain.invoke({"context": doc_chunks})
     
-    Original Document Chunks:
-    {chunks}
+    # Step 2: Validate completeness
+    coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
     
-    Enhanced Summary with ALL missing details added:
-    """)
+    # Step 3: If coverage is insufficient, perform additional enhancement
+    if coverage < 0.8:
+        st.info("🔍 Performing additional detail enhancement to improve coverage...")
+        
+        llm = ChatOpenAI(api_key=api_key, model_name=model_name, temperature=0.1)
+        
+        enhancement_prompt = ChatPromptTemplate.from_template("""
+        Review the following summary against the original document chunks to identify and add any missing critical details.
+        
+        MISSING DETAILS ANALYSIS:
+        Original numbers found: {orig_numbers}
+        Summary numbers captured: {summ_numbers}
+        Coverage: {coverage:.1%}
+        
+        ENHANCEMENT INSTRUCTIONS:
+        1. Identify all missing quantitative data from the original document
+        2. Add any missing specifications, procedures, or requirements
+        3. Ensure all technical definitions are complete
+        4. Verify all organizational details are captured
+        5. Cross-reference to eliminate any gaps
+        
+        Original Summary:
+        {summary}
+        
+        Original Document Chunks (for reference):
+        {chunks}
+        
+        ENHANCED COMPREHENSIVE SUMMARY with ALL missing details integrated:
+        """)
+        
+        # Combine chunks for context (limit to avoid token limits)
+        combined_chunks = "\n\n".join([chunk.page_content for chunk in doc_chunks[:8]])
+        
+        try:
+            enhanced_summary = llm.invoke(enhancement_prompt.format(
+                summary=initial_summary,
+                chunks=combined_chunks,
+                orig_numbers=list(orig_numbers),
+                summ_numbers=list(summ_numbers),
+                coverage=coverage
+            ))
+            
+            # Validate the enhanced version
+            final_coverage, _, _ = validate_summary_completeness(enhanced_summary.content, doc_chunks)
+            
+            st.success(f"✅ Enhancement complete! Coverage improved from {coverage:.1%} to {final_coverage:.1%}")
+            
+            return enhanced_summary.content, final_coverage
+            
+        except Exception as e:
+            st.warning(f"Enhancement failed: {e}. Using initial summary.")
+            return initial_summary, coverage
     
-    # Combine chunks for context
-    combined_chunks = "\n\n".join([chunk.page_content for chunk in original_chunks[:5]])  # Limit to avoid token limits
-    
-    try:
-        enhanced_summary = llm.invoke(enhancement_prompt.format(
-            summary=summary,
-            chunks=combined_chunks
-        ))
-        return enhanced_summary.content
-    except Exception as e:
-        st.warning(f"Enhancement failed: {e}. Using original summary.")
-        return summary
+    else:
+        st.success(f"✅ Initial summary achieved {coverage:.1%} coverage - enhancement not needed")
+        return initial_summary, coverage
 
 def parse_structured_summary(summary_text):
     """Enhanced parsing to better handle structured content"""
@@ -395,7 +448,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
     content = []
     
     # Title and metadata
-    content.append(Paragraph("Comprehensive Document Analysis", title_style))
+    content.append(Paragraph("Comprehensive Enhanced Document Analysis", title_style))
     content.append(Spacer(1, 12))
     
     content.append(Paragraph(f"<b>Source Document:</b> {original_filename}", styles['Normal']))
@@ -465,7 +518,7 @@ def main():
     )
     
     st.title("📋 Enhanced Detailed Document Summarizer")
-    st.markdown("Generate comprehensive, structured summaries that capture EVERY important detail!")
+    st.markdown("Generate comprehensive, enhanced summaries that capture EVERY important detail!")
     
     # Sidebar for configuration
     with st.sidebar:
@@ -485,13 +538,15 @@ def main():
         # Processing settings
         st.subheader("🔧 Processing Settings")
         
-        chunk_size = st.slider("Chunk Size", 1500, 4000, 3000, help="Larger chunks preserve more context")
-        chunk_overlap = st.slider("Chunk Overlap", 300, 800, 500, help="Higher overlap ensures continuity")
+        # Fixed chunk settings
+        st.info("📋 **Fixed Optimal Settings:**")
+        st.text("• Chunk Size: 1500 characters")
+        st.text("• Chunk Overlap: 500 characters")
+        st.text("• Enhanced Summary: Enabled")
         
-        use_map_reduce = st.checkbox("Use Map-Reduce for Long Documents", help="Better for very long documents")
-        enhance_summary = st.checkbox("Enhance Summary with Missing Details", value=True, help="Additional pass to catch missed details")
+        use_map_reduce = st.checkbox("Use Map-Reduce for Long Documents", help="Better for very long documents (20+ pages)")
         
-        st.info("✅ Enhanced text extraction and validation enabled")
+        st.success("✅ Enhanced processing with automatic detail enhancement enabled")
     
     # Main interface
     col1, col2 = st.columns([1, 1])
@@ -512,15 +567,15 @@ def main():
             st.info(f"📊 File size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
     
     with col2:
-        st.header("🚀 Generate Summary")
+        st.header("🚀 Generate Enhanced Summary")
         
-        if st.button("🔄 Generate Enhanced Summary", type="primary", disabled=not (uploaded_file and api_key)):
+        if st.button("🔄 Generate Comprehensive Enhanced Summary", type="primary", disabled=not (uploaded_file and api_key)):
             if not api_key:
                 st.error("❌ Please enter your OpenAI API key in the sidebar.")
             elif not uploaded_file:
                 st.error("❌ Please upload a document first.")
             else:
-                with st.spinner("🔍 Analyzing document and generating comprehensive summary..."):
+                with st.spinner("🔍 Analyzing document and generating comprehensive enhanced summary..."):
                     try:
                         # Load and process document
                         documents = load_document(uploaded_file)
@@ -531,30 +586,14 @@ def main():
                         total_content = sum(len(doc.page_content) for doc in documents)
                         st.info(f"📄 Document loaded: {len(documents)} pages, {total_content:,} characters")
                         
-                        # Split documents
-                        doc_chunks = split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+                        # Split documents with fixed optimal settings
+                        doc_chunks = split_documents(documents, chunk_size=1500, chunk_overlap=500)
                         st.info(f"📑 Document processed into {len(doc_chunks)} chunks for analysis")
                         
-                        # Create summary chain
-                        chain = create_detailed_summary_chain(api_key, selected_model, use_map_reduce)
-                        
-                        # Generate summary
-                        if use_map_reduce:
-                            summary = chain.run(doc_chunks)
-                        else:
-                            summary = chain.invoke({"context": doc_chunks})
-                        
-                        # Validate summary completeness
-                        coverage, orig_numbers, summ_numbers = validate_summary_completeness(summary, doc_chunks)
-                        st.info(f"📊 Summary validation: {coverage:.1%} of key numbers captured")
-                        
-                        if coverage < 0.7:
-                            st.warning("⚠️ Summary may be missing some details. Consider using enhancement.")
-                        
-                        # Enhance summary if requested and coverage is low
-                        if enhance_summary and (coverage < 0.8 or len(summary) < total_content * 0.1):
-                            with st.spinner("🔧 Enhancing summary with missing details..."):
-                                summary = enhance_summary_with_missing_details(summary, doc_chunks, api_key, selected_model)
+                        # Generate comprehensive enhanced summary
+                        summary, coverage = generate_comprehensive_enhanced_summary(
+                            doc_chunks, api_key, selected_model, use_map_reduce
+                        )
                         
                         # Store in session state
                         st.session_state.summary = summary
@@ -562,7 +601,8 @@ def main():
                         st.session_state.structured_summary = parse_structured_summary(summary)
                         st.session_state.coverage = coverage
                         
-                        st.success("✅ Enhanced detailed summary generated successfully!")
+                        st.success("✅ Comprehensive enhanced summary generated successfully!")
+                        st.balloons()
                         
                     except Exception as e:
                         st.error(f"❌ Error generating summary: {str(e)}")
@@ -652,28 +692,28 @@ def main():
     
     # Enhanced footer with troubleshooting tips
     st.markdown("---")
-    with st.expander("💡 Tips for Maximum Detail Extraction"):
+    with st.expander("💡 Enhanced Processing Information"):
         st.markdown("""
-        **For Best Results:**
-        - **Use GPT-4**: Essential for capturing all technical details
-        - **Enable Enhancement**: Catches details missed in first pass
-        - **Increase Chunk Size**: 3000+ characters for better context
-        - **Use Map-Reduce**: For documents longer than 20 pages
-        - **Check Coverage Metrics**: Low coverage indicates missing details
+        **Automatic Enhancements:**
+        - **Fixed Optimal Settings**: Chunk size (1500) and overlap (500) optimized for best results
+        - **Built-in Enhancement**: Automatic detail enhancement integrated into main process
+        - **Coverage Validation**: Automatic validation with additional enhancement if needed
+        - **GPT-4 Recommended**: Essential for capturing all technical details
+        - **Map-Reduce Option**: Available for very long documents (20+ pages)
         
-        **Troubleshooting Missing Details:**
-        - ✅ Ensure document text is clear and well-formatted
-        - ✅ Try different chunk sizes (larger for complex documents)
-        - ✅ Enable "Enhance Summary" option
-        - ✅ Use GPT-4 instead of GPT-3.5
-        - ✅ Check if language filtering is removing content
+        **Process Flow:**
+        1. ✅ Document loaded and processed with optimal chunk settings
+        2. ✅ Initial comprehensive summary generated with enhanced prompts
+        3. ✅ Automatic coverage validation performed
+        4. ✅ Additional enhancement applied if coverage < 80%
+        5. ✅ Final structured summary with maximum detail retention
         
-        **Enhanced Features:**
-        - ✅ Summary validation and coverage metrics
-        - ✅ Missing detail enhancement
-        - ✅ Better text extraction and parsing
-        - ✅ Map-reduce for long documents
-        - ✅ Improved PDF formatting
+        **What's New:**
+        - ✅ Fixed optimal chunk size (1500) and overlap (500)
+        - ✅ Integrated enhancement process (no separate checkbox)
+        - ✅ Automatic coverage improvement
+        - ✅ Enhanced validation and feedback
+        - ✅ Streamlined user experience
         """)
 
 if __name__ == "__main__":
