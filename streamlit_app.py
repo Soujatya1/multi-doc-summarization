@@ -104,7 +104,7 @@ def create_summarization_chain(llm):
         - Bank account numbers, credit card numbers, social security numbers, passport numbers, personal mobile numbers
         If you encounter such information, DO NOT include it in your summary.
         
-        Analyze the following circular document and create a comprehensive compliance-focused summary.
+        You are an expert document summarizer for Circulars, analyze the documents and provide a detailed summary.
         
         Document Name: {document_name}
         Document Content: {text}
@@ -114,17 +114,7 @@ def create_summarization_chain(llm):
         1. Document Name: {document_name}
         2. Key Pointers:
         
-        For the Key Pointers section, provide detailed bullet points covering:
-        - Regulatory requirements and compliance obligations with specific regulation numbers/codes
-        - New rules, amendments, or modifications to existing regulations
-        - Implementation dates, deadlines, and timelines (include exact dates)
-        - Penalties, sanctions, or consequences for non-compliance
-        - Required procedures, processes, or steps for compliance
-        - Reporting requirements and documentation needed
-        - Exemptions, exceptions, or special conditions
-        - Impact on existing policies or procedures
-        - Applicable entities, sectors, or categories affected
-        - Contact information or regulatory authority details
+        For the Key Pointers section, provide detailed bullet points covering all important details from the document
         
         Each bullet point MUST:
         * Start with a capitalized first letter
