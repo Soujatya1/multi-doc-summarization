@@ -91,12 +91,57 @@ def create_summarization_chain(api_key, chain_type="stuff", min_bullets=6):
         
         PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
         
-        chain = load_summarize_chain(
-            llm=llm,
-            chain_type=chain_type,
-            prompt=PROMPT,
-            verbose=True
-        )
+        # Handle different chain types with appropriate prompt configuration
+        if chain_type == "stuff":
+            chain = load_summarize_chain(
+                llm=llm,
+                chain_type=chain_type,
+                prompt=PROMPT,
+                verbose=True
+            )
+        elif chain_type == "map_reduce":
+            # For map_reduce, we need to specify combine_prompt
+            chain = load_summarize_chain(
+                llm=llm,
+                chain_type=chain_type,
+                combine_prompt=PROMPT,
+                verbose=True
+            )
+        elif chain_type == "refine":
+            # For refine, we need refine_prompt
+            refine_template = f"""
+            Your job is to produce a final summary in bullet points format.
+            We have provided an existing summary up to a certain point: {{existing_answer}}
+            We have the opportunity to refine the existing summary (only if needed) with some more context below.
+            ------------
+            {{text}}
+            ------------
+            Given the new context, refine the original summary to include at least {min_bullets} bullet points.
+            Each bullet point should start with "•" and be concise but informative.
+            If the context isn't useful, return the original summary.
+            
+            REFINED SUMMARY IN BULLET POINTS:
+            """
+            
+            REFINE_PROMPT = PromptTemplate(
+                template=refine_template,
+                input_variables=["existing_answer", "text"]
+            )
+            
+            chain = load_summarize_chain(
+                llm=llm,
+                chain_type=chain_type,
+                question_prompt=PROMPT,
+                refine_prompt=REFINE_PROMPT,
+                verbose=True
+            )
+        else:
+            # Fallback to default
+            chain = load_summarize_chain(
+                llm=llm,
+                chain_type=chain_type,
+                verbose=True
+            )
         
         return chain
     except Exception as e:
