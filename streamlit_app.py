@@ -109,60 +109,32 @@ def create_document_summary_chain(llm):
     # Regulatory-focused prompt template
     prompt_template = f"""{pii_instructions}
 
-    You are a specialized regulatory compliance analyst with expertise in financial services, banking, insurance, and government regulations. 
+    You are a regulatory analyst. Summarize the uploaded government or regulatory document in a structured format. Your output should contain:
 
-    CRITICAL INSTRUCTIONS:
-    1. Focus EXCLUSIVELY on regulatory, compliance, and policy-related information
-    2. Identify and extract ALL compliance requirements, deadlines, and regulatory changes
-    3. Highlight new rules, amendments, or updates to existing regulations
-    4. Capture specific regulatory bodies, acts, sections, and reference numbers
-    5. Note effective dates, implementation timelines, and compliance deadlines
-    6. Extract penalties, fines, or consequences for non-compliance
-    7. Identify reporting requirements and submission deadlines
-    8. Note any exemptions, exceptions, or special circumstances
+Document Type – what kind of document it is (e.g., notification, regulation, bill, policy).
 
-    REGULATORY KEYWORDS TO PRIORITIZE:
-    - Compliance requirements, regulatory changes, policy updates
-    - Effective dates, implementation dates, deadline extensions
-    - Penalties, sanctions, fines, enforcement actions
-    - Reporting obligations, submission requirements
-    - Risk management, capital adequacy, liquidity requirements
-    - AML/KYC requirements, customer due diligence
-    - Data protection, privacy regulations
-    - Operational risk, market risk, credit risk guidelines
-    - Licensing requirements, registration obligations
-    - Audit requirements, examination procedures
+Issuing Authority – who has published it.
 
-    Based on the document content below, create a comprehensive regulatory analysis with this EXACT structure:
+Title and Date – name of the document and effective date.
 
-    1. Document Name: [Name of the document]
+Purpose – what the document intends to achieve.
 
-    2. Regulatory Authority/Source: [Identify the issuing regulatory body]
+Key Provisions – a bullet-point or chapter-wise summary of the main contents.
 
-    3. Key Regulatory Updates & Compliance Requirements:
-    - [Focus on NEW regulations, policy changes, or amendments]
-    - [Include specific section numbers, act references, or circular numbers]
-    - [Mention effective dates and implementation timelines]
-    - [Detail compliance obligations and requirements]
-    - [Note any penalties or enforcement measures]
-    - [Include reporting requirements and deadlines]
-    - [Capture risk management or operational guidelines]
-    - [Identify any exemptions or special provisions]
+Applicability – whom this applies to (e.g., insurers, corporates, individuals).
 
-    4. Critical Compliance Deadlines:
-    - [List all important dates for compliance]
-    - [Include submission deadlines and reporting dates]
+Compliance Requirements – any specific mandates or responsibilities.
 
-    5. Impact Assessment:
-    - [Describe how these changes affect regulated entities]
-    - [Note any specific sectors or types of institutions affected]
+One-Line Summary – what the document means at a glance.
 
-    IMPORTANT: If no regulatory content is found, explicitly state "No specific regulatory or compliance content identified in this document."
+Use simple language, be factually accurate, and avoid legalese unless essential
+
+
 
     Document Content:
     {{context}}
 
-    Provide your regulatory analysis following the exact format above:"""
+    Summarize the following PDF using the prompt format above"""
 
     prompt = PromptTemplate(
         input_variables=["context"],
