@@ -58,29 +58,43 @@ def load_document(uploaded_file):
         st.error(f"Error loading document: {str(e)}")
         return None
 
-def create_summarization_chain(api_key, chain_type="stuff"):
+def create_summarization_chain(api_key, chain_type="stuff", min_bullets=6):
     """Create LangChain summarization chain"""
     try:
         llm = OpenAI(
             temperature=0.3,
             openai_api_key=api_key,
-            max_tokens=1000
+            max_tokens=1500
         )
         
-        # Custom prompt for bullet-point summaries
-        prompt_template = """
-        Please provide a detailed summary of the following text in bullet points format.
-        Focus on the key points, main ideas, and important details and in the flow of the document write the detailed summary.
-        Format your response as clear, concise bullet points starting with "•".
+        # Enhanced prompt for multiple bullet-point summaries
+        from langchain.prompts import PromptTemplate
         
-        Text: {text}
+        prompt_template = f"""
+        Please provide a comprehensive summary of the following text in multiple bullet points format.
+        Create AT LEAST {min_bullets} bullet points covering different aspects of the content.
+        Each bullet point should capture a distinct key idea, main concept, or important detail.
         
-        BULLET POINT SUMMARY:
+        Guidelines:
+        - Start each bullet point with "•"
+        - Make each point concise but informative (1-2 sentences max)
+        - Cover different themes/topics from the text
+        - Include important facts, figures, or conclusions
+        - Organize points logically from most to least important
+        - Ensure you provide at least {min_bullets} distinct bullet points
+        
+        Text to summarize:
+        {{text}}
+        
+        SUMMARY IN MULTIPLE BULLET POINTS:
         """
+        
+        PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
         
         chain = load_summarize_chain(
             llm=llm,
             chain_type=chain_type,
+            prompt=PROMPT,
             verbose=True
         )
         
@@ -90,19 +104,52 @@ def create_summarization_chain(api_key, chain_type="stuff"):
         return None
 
 def extract_bullet_points(summary_text):
-    """Extract bullet points from the summary text"""
+    """Extract and clean bullet points from the summary text"""
     lines = summary_text.split('\n')
     bullet_points = []
     
     for line in lines:
         line = line.strip()
         if line:
-            # Remove existing bullet characters and clean up
-            cleaned_line = re.sub(r'^[•\-\*]\s*', '', line)
-            if cleaned_line:
+            # Check if line already has bullet point markers
+            if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                # Remove existing bullet and clean
+                cleaned_line = re.sub(r'^[•\-\*]\s*', '', line).strip()
+            elif re.match(r'^\d+\.', line):
+                # Handle numbered lists
+                cleaned_line = re.sub(r'^\d+\.\s*', '', line).strip()
+            else:
+                # Regular line - might be a bullet point without marker
+                cleaned_line = line.strip()
+            
+            # Only add non-empty, substantial lines (avoid headers/fluff)
+            if cleaned_line and len(cleaned_line) > 10:
                 bullet_points.append(cleaned_line)
     
-    return bullet_points
+    # If we don't have enough bullet points, try to split long paragraphs
+    if len(bullet_points) < 3:
+        # Split by sentences for additional bullet points
+        for line in lines:
+            if len(line.strip()) > 50:
+                sentences = re.split(r'[.!?]+', line)
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    if sentence and len(sentence) > 15:
+                        # Remove bullet markers if present
+                        sentence = re.sub(r'^[•\-\*]\s*', '', sentence).strip()
+                        if sentence not in bullet_points:
+                            bullet_points.append(sentence)
+    
+    # Ensure we have at least some bullet points
+    if not bullet_points and summary_text.strip():
+        # Fallback: split the entire summary into sentences
+        sentences = re.split(r'[.!?]+', summary_text)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence and len(sentence) > 15:
+                bullet_points.append(sentence)
+    
+    return bullet_points[:15]  # Limit to 15 bullet points max
 
 def create_pdf_report(summary_text, original_filename, output_filename):
     """Create PDF report with bullet points"""
@@ -215,6 +262,15 @@ def main():
             value=1000,
             help="Size of text chunks for processing large documents"
         )
+        
+        # Number of bullet points setting
+        min_bullet_points = st.slider(
+            "Minimum Bullet Points",
+            min_value=3,
+            max_value=15,
+            value=6,
+            help="Minimum number of bullet points to generate"
+        )
     
     # Main content area
     col1, col2 = st.columns([1, 1])
@@ -263,7 +319,7 @@ def main():
                             documents = text_splitter.split_documents(documents)
                         
                         # Create summarization chain
-                        chain = create_summarization_chain(api_key, chain_type)
+                        chain = create_summarization_chain(api_key, chain_type, min_bullet_points)
                         
                         if chain:
                             try:
@@ -282,12 +338,24 @@ def main():
     # Display summary if available
     if hasattr(st.session_state, 'summary'):
         st.header("Generated Summary")
-        st.markdown("### Summary in Bullet Points:")
         
-        # Display summary
+        # Extract and display bullet points
+        bullet_points = extract_bullet_points(st.session_state.summary)
+        
+        st.markdown(f"### Summary with {len(bullet_points)} Bullet Points:")
+        
+        # Display summary in bullet format
         summary_container = st.container()
         with summary_container:
-            st.markdown(st.session_state.summary)
+            if bullet_points:
+                for i, point in enumerate(bullet_points, 1):
+                    st.markdown(f"**{i}.** • {point}")
+            else:
+                st.markdown(st.session_state.summary)
+        
+        # Show raw summary in expander for reference
+        with st.expander("View Raw Summary"):
+            st.text(st.session_state.summary)
         
         # PDF export section
         st.header("Export to PDF")
