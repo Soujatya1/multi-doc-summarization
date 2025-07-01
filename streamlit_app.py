@@ -13,9 +13,13 @@ import os
 
 # Streamlit UI
 st.title("📝 PDF Summarizer to Bullet Point PDF")
+
+# Input OpenAI API Key
+openai_api_key = st.text_input("Enter your OpenAI API Key", type="password")
+
 uploaded_file = st.file_uploader("Upload a PDF document", type="pdf")
 
-if uploaded_file:
+if uploaded_file and openai_api_key:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         tmp_file.write(uploaded_file.read())
         tmp_file_path = tmp_file.name
@@ -37,7 +41,7 @@ if uploaded_file:
     )
 
     # Initialize LLM
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    llm = ChatOpenAI(model="gpt-4", temperature=0, api_key=openai_api_key)
 
     # Create chain
     chain = create_stuff_documents_chain(llm, prompt)
@@ -63,3 +67,6 @@ if uploaded_file:
 
     with open(output_path, "rb") as f:
         st.download_button("Download Summary PDF", f, file_name="summary_output.pdf")
+
+elif uploaded_file:
+    st.warning("Please enter your OpenAI API key to proceed.")
