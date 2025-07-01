@@ -609,15 +609,6 @@ def main():
                     file_name=f"enhanced_summary_{st.session_state.filename.split('.')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                     mime="application/pdf"
                 )
-        
-        with col3:
-            if st.button("📝 Download Text"):
-                st.download_button(
-                    label="⬇️ Download Text Summary",
-                    data=st.session_state.summary,
-                    file_name=f"summary_{st.session_state.filename.split('.')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
-                )
 
 if __name__ == "__main__":
     main()
