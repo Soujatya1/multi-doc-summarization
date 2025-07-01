@@ -45,7 +45,7 @@ if uploaded_file and openai_api_key:
     # Create chain
     chain = create_stuff_documents_chain(llm=llm, prompt=prompt)
 
-    # Combine all page contents into a single string for the context
+    # Extract text from pages
     full_context = "\n\n".join([page.page_content for page in pages])
 
     # Generate bullet points
