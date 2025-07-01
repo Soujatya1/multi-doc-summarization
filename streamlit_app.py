@@ -68,6 +68,8 @@ def create_summary_chain(api_key, model_name="gpt-3.5-turbo"):
     prompt_template = ChatPromptTemplate.from_template("""
     Please provide a comprehensive summary of the following document in bullet point format. 
     Each bullet point should capture key information, main ideas, or important details.
+    IMPORTANT: According to the document content, create sub-headers under which as per the flow of the document structure, mention the pointers in bullet format
+    Create as many bullet points as required but make it very detailed capturing and highlighting key information
     Make the bullet points concise but informative.
     
     Document content:
