@@ -113,7 +113,7 @@ def create_document_summary_chain(llm):
     # Create the prompt template for summarization
     prompt_template = f"""{pii_instructions}
 
-    You are an expert document analyzer. Based on the following document content, create a comprehensive summary with this EXACT structure:
+    You are an expert document analyzer. Based on the following document content, create a detailed summary with this EXACT structure:
 
     1. Document Name: [Name of the document without extension]
     2. Key Pointers:
