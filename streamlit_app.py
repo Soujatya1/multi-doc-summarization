@@ -63,11 +63,10 @@ if uploaded_pdf and openai_api_key:
     Summary in bullet points:"""
     )
     llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o", temperature=0.3)
-    summarizer_chain = create_stuff_documents_chain(llm, prompt_template)
+    summarizer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
 
     with st.spinner("Generating summary..."):
-        response = summarizer_chain.invoke({"input_documents": documents})
-        summary_text = response.get("output_text", "").strip()
+        summary_text = summarizer_chain.invoke(documents).strip()
 
     # Convert summary to bullet points
     bullets = [line.strip("-• ") for line in summary_text.split("\n") if line.strip()]
