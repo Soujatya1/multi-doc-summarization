@@ -328,17 +328,22 @@ def summarize_circular_documents(uploaded_files, api_key):
 
                 # Add "Key Pointers" section
                 flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
-                
-                # Split summary into bullet points
+
+                # Extract and format bullet points properly
                 try:
                     key_pointers_section = standardized_summary.split('2. Key Pointers:')[1].strip()
-                    bullet_points = key_pointers_section.split('\n')
-                    
+    
+                    # Normalize line breaks and clean extra whitespace
+                    bullet_points = [line.strip() for line in key_pointers_section.split('\n') if line.strip()]
+    
                     for point in bullet_points:
-                        if point.strip():
-                            flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
+                        # Remove leading dashes or bullets
+                        clean_point = re.sub(r'^[-•*\d.)\s]+', '', point).strip()
+                        if clean_point:
+                            # Render each point with bullet
+                            flowables.append(Paragraph(f"• {clean_point}", styles['BulletPoint']))
                 except IndexError:
-                    # Fallback if summary format is different
+                    # Fallback if summary format is different or '2. Key Pointers:' not found
                     flowables.append(Paragraph(standardized_summary, styles['BodyText']))
                 
                 flowables.append(Spacer(1, 12))  # Add space between document summaries
