@@ -121,34 +121,65 @@ def summarize_circular_documents(uploaded_files, api_key):
 
     # Prompts for summarization with consistent formatting
     map_prompt = PromptTemplate(
-        input_variables=["text"],
-        template=f"""{pii_instructions}
-        Extract the detailed highlights, the main ideas, purpose, and important insights
-        Focus on the level of details, circular updates, the names/specified updates
-        PLEASE focus on extracting detailed descriptions and at a granular level
-        Always include the key components, updates and specifications mentioned, important circular updates.\n\n{{text}}
-        """
-    )
+    input_variables=["text"],
+    template=f"""{pii_instructions}
+    Extract detailed compliance regulations, regulatory updates, and policy changes from this circular document.
+    Focus specifically on:
+    - Regulatory requirements and compliance obligations
+    - New rules, amendments, or modifications to existing regulations
+    - Implementation dates, deadlines, and timelines
+    - Penalties, sanctions, or consequences for non-compliance
+    - Specific procedures, processes, or steps required for compliance
+    - Reporting requirements and documentation needed
+    - Exemptions, exceptions, or special conditions
+    - Impact on existing policies or procedures
+    - Regulatory authority or issuing body requirements
+    
+    IMPORTANT: Extract granular details including:
+    - Specific regulation numbers, codes, or references
+    - Exact compliance dates and deadlines
+    - Detailed procedural requirements
+    - Quantitative thresholds, limits, or criteria
+    - Specific forms, formats, or documentation requirements
+    
+    Provide comprehensive details at the most granular level possible.\n\n{{text}}
+    """
+)
 
     combine_prompt = PromptTemplate(
-        input_variables=["text"],
-        template="""Create a comprehensive summary with the following EXACT structure:
-        1. Document Name: [Name of the document without extension]
-        2. Key Pointers:
-        - Focus on the level of details at a greater extent
-        - Provide key bullet points that capture the main themes, and critical insights of the document, also be specific with the details from the documents uploaded
-        - Do not miss out on any specifications/ details which are important
-        - Create as many pointers as you see fit
-        - Each point MUST:
-          * Start with a capitalized first letter
-          * End with a period
-          * Be a specific on the details for each key insight or finding
-          * Avoid redundancy across points
-          * Focus on unique, substantive information
-
-        Combine the following individual summaries into a cohesive, insightful overview that maintains the unique characteristics of each document:\n\n{text}
-        """
-    )
+    input_variables=["text"],
+    template="""Create a comprehensive compliance-focused summary with the following EXACT structure:
+    1. Document Name: [Name of the document without extension]
+    2. Key Compliance Regulations & Updates:
+    
+    For each compliance regulation or update, provide detailed bullet points that include:
+    - Specific regulation name, number, or reference code
+    - Nature of the regulatory change (new rule, amendment, modification, etc.)
+    - Detailed compliance requirements and obligations
+    - Implementation timeline with specific dates and deadlines
+    - Required actions, procedures, or processes
+    - Documentation, reporting, or filing requirements
+    - Penalties, consequences, or sanctions for non-compliance
+    - Impact on existing policies, procedures, or operations
+    - Applicable entities, sectors, or categories affected
+    - Exemptions, exceptions, or special conditions if any
+    - Contact information or regulatory authority details
+    
+    Each bullet point MUST:
+    * Start with a capitalized first letter
+    * End with a period
+    * Include specific regulatory details, dates, and requirements
+    * Mention exact compliance obligations and procedures
+    * Highlight critical deadlines and implementation dates
+    * Specify quantitative limits, thresholds, or criteria where applicable
+    * Avoid generic statements - focus on actionable compliance information
+    * Be comprehensive yet concise for each regulatory aspect
+    
+    Prioritize the most critical compliance requirements and regulatory updates that require immediate attention or action.
+    
+    Combine the following individual summaries into a cohesive compliance overview:\n\n{text}
+    """
+)
 
     # Prepare PDF output
     pdf_output = BytesIO()
