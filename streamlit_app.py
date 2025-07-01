@@ -54,49 +54,59 @@ def chunk_document(text, chunk_size=8000, chunk_overlap=500):
     
     return text_splitter.split_text(text)
 
-def standardize_key_pointers(summary):
+def standardize_summary_format(summary, doc_name):
     """
-    Standardize key pointers to ensure consistent formatting.
+    Standardize summary to match the desired format structure.
     
     Args:
         summary (str): The generated summary
+        doc_name (str): Document name for abbreviation
     
     Returns:
-        str: Standardized summary with consistent key pointers
+        str: Formatted summary matching the sample structure
     """
-    # Split the summary into sections
-    sections = summary.split('2. Key Pointers:')
+    # Create document abbreviation (first few letters of document name)
+    doc_abbrev = ''.join([c.upper() for c in doc_name if c.isalpha()])[:3]
     
-    if len(sections) > 1:
-        # Extract the key pointers
-        pointers = sections[1].strip().split('\n')
-        
-        # Clean and standardize pointers
-        cleaned_pointers = []
-        for pointer in pointers:
-            # Remove any bullet points or numbering
-            clean_pointer = re.sub(r'^[-•*\d.)\s]+', '', pointer).strip()
+    # Clean and format the summary
+    lines = summary.split('\n')
+    formatted_lines = []
+    
+    # Add header
+    formatted_lines.append(f"**[{doc_abbrev}]**")
+    formatted_lines.append("")
+    formatted_lines.append("[Summary:]")
+    formatted_lines.append("")
+    
+    # Process the content
+    in_content = False
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
             
-            # Capitalize first letter, ensure it ends with a period
-            if clean_pointer:
-                clean_pointer = clean_pointer[0].upper() + clean_pointer[1:]
-                if not clean_pointer.endswith('.'):
-                    clean_pointer += '.'
-                
-                cleaned_pointers.append(clean_pointer)
-        
-        # Reconstruct the summary with standardized pointers
-        standardized_summary = f"{sections[0].strip()}\n\n2. Key Pointers:\n"
-        standardized_summary += '\n'.join([f"- {point}" for point in cleaned_pointers])
-        
-        return standardized_summary
+        # Skip header lines from LLM output
+        if line.startswith("**[") or line.startswith("[Summary:]"):
+            in_content = True
+            continue
+            
+        if in_content and line:
+            # Format bullet points
+            if line.startswith('-'):
+                formatted_lines.append(line)
+            elif line.startswith('•') or line.startswith('*'):
+                formatted_lines.append(f"-{line[1:]}")
+            else:
+                # Add as regular bullet point if not already formatted
+                if not line.startswith('**[') and not line.startswith('[Summary'):
+                    formatted_lines.append(f"- {line}")
     
-    return summary
+    return '\n'.join(formatted_lines)
 
 def create_summarization_chain(llm):
     """Create a single LLM chain for document summarization."""
     
-    # Single comprehensive prompt
+    # Single comprehensive prompt matching the desired format
     summarization_prompt = PromptTemplate(
         input_variables=["text", "document_name"],
         template="""
@@ -104,29 +114,52 @@ def create_summarization_chain(llm):
         - Bank account numbers, credit card numbers, social security numbers, passport numbers, personal mobile numbers
         If you encounter such information, DO NOT include it in your summary.
         
-        You are an expert document summarizer for Circulars, analyze the documents and provide a detailed summary.
+        Analyze the following circular document and create a comprehensive compliance-focused summary.
         
         Document Name: {document_name}
         Document Content: {text}
         
-        Provide a detailed summary with the following EXACT structure:
+        Provide a detailed summary with the following EXACT structure and formatting:
         
-        1. Document Name: {document_name}
-        2. Key Pointers:
+        **[DOCUMENT_ABBREVIATION]**
         
-        For the Key Pointers section, provide detailed bullet points covering all important details from the document
+        [Summary:]
         
-        Each bullet point MUST:
-        * Start with a capitalized first letter
-        * End with a period
-        * Include specific regulatory details, dates, and requirements
-        * Mention exact compliance obligations and procedures
-        * Highlight critical deadlines and implementation dates
-        * Specify quantitative limits, thresholds, or criteria where applicable
-        * Be comprehensive yet concise and actionable
-        * Focus on the most critical compliance requirements
+        Create organized bullet points with clear sub-sections where applicable. Use the following structure:
         
-        Prioritize information that requires immediate attention or action from compliance teams.
+        - Main regulatory requirements and compliance obligations
+        - Key definitions and terminology changes
+        - Board composition and governance requirements
+            - Sub-points for specific board requirements
+            - Director appointment and removal procedures
+            - Independence requirements
+        - Committee requirements and responsibilities
+            - Mandatory committee functions
+            - Risk management committee specifics
+        - Related party transaction requirements
+        - Succession planning requirements
+        - Key Management Personnel (KMP) requirements
+            - Chief Compliance Officer requirements
+            - Duties and responsibilities
+            - Reporting and notification requirements
+        - Remuneration policies and requirements
+        - Auditor requirements and qualifications
+        - Disclosure and reporting requirements
+            - Annual compliance reporting
+            - Board composition disclosures
+        - Any other specific regulatory frameworks (ESG, Stewardship, etc.)
+        
+        Format Guidelines:
+        - Use clear main bullet points (-)
+        - Use sub-bullet points for detailed requirements under main sections
+        - Include specific timeframes, deadlines, and quantitative requirements
+        - Highlight key regulatory changes or new requirements
+        - Use underlined text formatting [text] for emphasis on important terms
+        - Each point should be comprehensive yet concise
+        - Focus on actionable compliance requirements
+        - Include specific regulation references and authority requirements
+        
+        Ensure the summary covers all critical compliance aspects that require immediate attention or action.
         """
     )
     
@@ -263,31 +296,39 @@ def summarize_circular_documents(uploaded_files, api_key):
                     st.error(f"Error processing {doc_name}: {str(e)}")
                     summary = f"1. Document Name: {doc_name}\n2. Key Pointers:\n- Error processing document: {str(e)}"
 
-            # Standardize the summary
-            summary = standardize_key_pointers(summary)
+            # Standardize the summary format
+            summary = standardize_summary_format(summary, doc_name)
 
-            # Format summary for PDF
-            # Add document name
-            flowables.append(Paragraph(f"Document: {doc_name}", styles['DocumentName']))
-            flowables.append(Spacer(1, 6))
-
-            # Add "Key Pointers" section
-            flowables.append(Paragraph("Key Pointers:", styles['Heading3']))
+            # Format summary for PDF - parse the new format
+            summary_lines = summary.split('\n')
             
-            # Split summary into bullet points
-            if '2. Key Pointers:' in summary:
-                key_pointers_section = summary.split('2. Key Pointers:')[1].strip()
-                bullet_points = key_pointers_section.split('\n')
+            # Find the document abbreviation and summary content
+            for i, line in enumerate(summary_lines):
+                line = line.strip()
                 
-                for point in bullet_points:
-                    if point.strip():
-                        flowables.append(Paragraph(point.strip(), styles['BulletPoint']))
-            else:
-                # Fallback if summary format is different
-                lines = summary.split('\n')
-                for line in lines:
-                    if line.strip() and not line.startswith('1. Document Name:'):
-                        flowables.append(Paragraph(line.strip(), styles['BulletPoint']))
+                if line.startswith('**[') and line.endswith(']**'):
+                    # Add document abbreviation as title
+                    doc_abbrev = line.replace('**[', '').replace(']**', '')
+                    flowables.append(Paragraph(f"Document: {doc_name} ({doc_abbrev})", styles['DocumentName']))
+                    flowables.append(Spacer(1, 6))
+                    continue
+                
+                if line == "[Summary:]":
+                    flowables.append(Paragraph("Summary:", styles['Heading3']))
+                    continue
+                
+                if line.startswith('- ') and line.strip():
+                    # Main bullet point
+                    bullet_text = line[2:].strip()
+                    flowables.append(Paragraph(f"• {bullet_text}", styles['BulletPoint']))
+                elif line.startswith('    - ') or line.startswith('        - '):
+                    # Sub bullet point (indented)
+                    sub_bullet_text = line.strip()[2:].strip()
+                    flowables.append(Paragraph(f"    ◦ {sub_bullet_text}", styles['BulletPoint']))
+                elif line.strip() and not line.startswith('**[') and not line.startswith('[Summary'):
+                    # Regular text
+                    if line.strip():
+                        flowables.append(Paragraph(line.strip(), styles['BodyText']))
             
             flowables.append(Spacer(1, 12))  # Add space between document summaries
 
