@@ -97,42 +97,72 @@ def standardize_key_pointers(summary):
     return summary
 
 def create_document_summary_chain(llm):
-    """Create a document summarization chain using create_stuff_documents_chain."""
     
-    # PII protection instructions
     pii_instructions = """
-    IMPORTANT: DO NOT include any personally identifiable information (PII) in your summary, including:
-    - Bank account numbers
-    - Credit card numbers
-    - Social security numbers
-    - Passport numbers
-    - Personal mobile numbers
-    If you encounter such information, DO NOT include it in your summary.
+    CRITICAL: DO NOT include any personally identifiable information (PII) in your generated content, including:
+    - Bank account numbers, credit card numbers, social security numbers
+    - Personal names, addresses, phone numbers, email addresses
+    - Any other personal identifiers
+    Replace with generic terms like [REDACTED] if encountered.
     """
 
-    # Create the prompt template for summarization
+    # Regulatory-focused prompt template
     prompt_template = f"""{pii_instructions}
 
-    You are an expert document analyzer. Based on the following document content, create a detailed document with this EXACT structure and the correct flow of information:
+    You are a specialized regulatory compliance analyst with expertise in financial services, banking, insurance, and government regulations. 
 
-    1. Document Name: [Name of the document without extension]
-    2. Key Pointers:
-    - Focus on the level of details at a greater extent
-    - Provide key bullet points that capture the main themes, and critical insights of the document
-    - Be specific with the details from the documents provided
-    - Do not miss out on any specifications/details which are important
-    - Create as many pointers as you see fit
-    - Each point MUST:
-      * Start with a capitalized first letter
-      * End with a period
-      * Be specific on the details for each key insight or finding
-      * Avoid redundancy across points
-      * Focus on unique, substantive information
+    CRITICAL INSTRUCTIONS:
+    1. Focus EXCLUSIVELY on regulatory, compliance, and policy-related information
+    2. Identify and extract ALL compliance requirements, deadlines, and regulatory changes
+    3. Highlight new rules, amendments, or updates to existing regulations
+    4. Capture specific regulatory bodies, acts, sections, and reference numbers
+    5. Note effective dates, implementation timelines, and compliance deadlines
+    6. Extract penalties, fines, or consequences for non-compliance
+    7. Identify reporting requirements and submission deadlines
+    8. Note any exemptions, exceptions, or special circumstances
+
+    REGULATORY KEYWORDS TO PRIORITIZE:
+    - Compliance requirements, regulatory changes, policy updates
+    - Effective dates, implementation dates, deadline extensions
+    - Penalties, sanctions, fines, enforcement actions
+    - Reporting obligations, submission requirements
+    - Risk management, capital adequacy, liquidity requirements
+    - AML/KYC requirements, customer due diligence
+    - Data protection, privacy regulations
+    - Operational risk, market risk, credit risk guidelines
+    - Licensing requirements, registration obligations
+    - Audit requirements, examination procedures
+
+    Based on the document content below, create a comprehensive regulatory analysis with this EXACT structure:
+
+    1. Document Name: [Name of the document]
+
+    2. Regulatory Authority/Source: [Identify the issuing regulatory body]
+
+    3. Key Regulatory Updates & Compliance Requirements:
+    - [Focus on NEW regulations, policy changes, or amendments]
+    - [Include specific section numbers, act references, or circular numbers]
+    - [Mention effective dates and implementation timelines]
+    - [Detail compliance obligations and requirements]
+    - [Note any penalties or enforcement measures]
+    - [Include reporting requirements and deadlines]
+    - [Capture risk management or operational guidelines]
+    - [Identify any exemptions or special provisions]
+
+    4. Critical Compliance Deadlines:
+    - [List all important dates for compliance]
+    - [Include submission deadlines and reporting dates]
+
+    5. Impact Assessment:
+    - [Describe how these changes affect regulated entities]
+    - [Note any specific sectors or types of institutions affected]
+
+    IMPORTANT: If no regulatory content is found, explicitly state "No specific regulatory or compliance content identified in this document."
 
     Document Content:
     {{context}}
 
-    Please provide a detailed documentation following the exact format above:"""
+    Provide your regulatory analysis following the exact format above:"""
 
     prompt = PromptTemplate(
         input_variables=["context"],
