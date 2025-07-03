@@ -350,9 +350,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
 
     if structured_summary:
         for i, section in enumerate(structured_summary):
-            # Skip section titles, go directly to points
             for point in section['points']:
-                # Convert **text** to <b>text</b> for bold formatting
                 formatted_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', point)
                 
                 if '\n        •' in formatted_point:
@@ -366,9 +364,7 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
                     content.append(Paragraph(f"• {formatted_point}", bullet_style))
 
             for subsection in section['subsections']:
-                # Skip subsection titles, go directly to points
                 for point in subsection['points']:
-                    # Convert **text** to <b>text</b> for bold formatting
                     formatted_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', point)
                     
                     if '\n        •' in formatted_point:
