@@ -350,31 +350,39 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
 
     if structured_summary:
         for i, section in enumerate(structured_summary):
+            # Skip section titles, go directly to points
             for point in section['points']:
-                if '\n        •' in point:
-                    main_point, sub_points = point.split('\n        •', 1)
+                # Convert **text** to <b>text</b> for bold formatting
+                formatted_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', point)
+                
+                if '\n        •' in formatted_point:
+                    main_point, sub_points = formatted_point.split('\n        •', 1)
                     content.append(Paragraph(f"• {main_point}", bullet_style))
                     for sub_point in sub_points.split('\n        •'):
                         if sub_point.strip():
-                            content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
+                            formatted_sub_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', sub_point.strip())
+                            content.append(Paragraph(f"◦ {formatted_sub_point}", sub_bullet_style))
                 else:
-                    content.append(Paragraph(f"• {point}", bullet_style))
+                    content.append(Paragraph(f"• {formatted_point}", bullet_style))
 
             for subsection in section['subsections']:
-                content.append(Paragraph(f"{subsection['title']}:", subsection_style))
-
+                # Skip subsection titles, go directly to points
                 for point in subsection['points']:
-                    if '\n        •' in point:
-                        main_point, sub_points = point.split('\n        •', 1)
+                    # Convert **text** to <b>text</b> for bold formatting
+                    formatted_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', point)
+                    
+                    if '\n        •' in formatted_point:
+                        main_point, sub_points = formatted_point.split('\n        •', 1)
                         content.append(Paragraph(f"• {main_point}", bullet_style))
                         for sub_point in sub_points.split('\n        •'):
                             if sub_point.strip():
-                                content.append(Paragraph(f"◦ {sub_point.strip()}", sub_bullet_style))
+                                formatted_sub_point = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', sub_point.strip())
+                                content.append(Paragraph(f"◦ {formatted_sub_point}", sub_bullet_style))
                     else:
-                        content.append(Paragraph(f"• {point}", bullet_style))
+                        content.append(Paragraph(f"• {formatted_point}", bullet_style))
 
             if i < len(structured_summary) - 1:
-                content.append(Spacer(1, 16))
+                content.append(Spacer(1, 6))
     else:
         content.append(Paragraph("Summary Content:", section_style))
         paragraphs = raw_summary.split('\n\n')
