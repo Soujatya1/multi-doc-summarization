@@ -350,11 +350,6 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
 
     if structured_summary:
         for i, section in enumerate(structured_summary):
-            if i == 0 and 'Regulatory and Development Authority' in section['title']:
-                continue
-
-            content.append(Paragraph(f"{i+1}. {section['title']}", section_style))
-
             for point in section['points']:
                 if '\n        •' in point:
                     main_point, sub_points = point.split('\n        •', 1)
