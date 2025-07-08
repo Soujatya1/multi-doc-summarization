@@ -10,7 +10,7 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain.schema import Document
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
@@ -78,9 +78,11 @@ def split_documents(documents, chunk_size=1500, chunk_overlap=500):
     return text_splitter.split_documents(documents)
 
 def create_enhanced_summary_chain(api_key, model_name="gpt-4o"):
-    llm = ChatOpenAI(
+    llm = AzureChatOpenAI(
+        azure_endpoint=azure_endpoint,
         api_key=api_key,
-        model_name=model_name,
+        api_version=api_version,
+        deployment_name=deployment_name,
         temperature=0.1,
         max_tokens=4000
     )
@@ -233,7 +235,12 @@ def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name):
     coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
     
     if coverage < 0.8:        
-        llm = ChatOpenAI(api_key=api_key, model_name=model_name, temperature=0.1)
+        llm = AzureChatOpenAI(
+            azure_endpoint=azure_endpoint,
+            api_key=api_key,
+            api_version=api_version,
+            deployment_name=deployment_name,
+            temperature=0.1)
         
         enhancement_prompt = ChatPromptTemplate.from_template("""
         Review the following summary against the original document chunks to identify and add any missing critical details.
@@ -479,16 +486,33 @@ def main():
     st.markdown("Generate comprehensive, enhanced summaries that capture EVERY important detail!")
     
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.header("⚙️ Azure OpenAI Configuration")
         
-        api_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            help="Enter your OpenAI API key"
+        # Azure OpenAI specific fields
+        azure_endpoint = st.text_input(
+            "Azure OpenAI Endpoint",
+            placeholder="https://your-resource.openai.azure.com/",
+            help="Your Azure OpenAI endpoint URL"
         )
         
-        model_options = ["gpt-4o", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
-        selected_model = st.selectbox("Select Model", model_options, help="GPT-4 strongly recommended for detailed summaries")
+        api_key = st.text_input(
+            "Azure OpenAI API Key",
+            type="password",
+            help="Enter your Azure OpenAI API key"
+        )
+        
+        api_version = st.selectbox(
+            "API Version",
+            ["2024-02-01", "2023-12-01-preview", "2023-05-15"],
+            help="Select Azure OpenAI API version"
+        )
+        
+        # Azure deployment names instead of model names
+        deployment_name = st.text_input(
+            "Deployment Name",
+            placeholder="gpt-4o",
+            help="Enter your Azure OpenAI deployment name"
+        )
     
     col1, col2 = st.columns([1, 1])
     
