@@ -552,7 +552,7 @@ def main():
                         st.info(f"📑 Document processed into {len(doc_chunks)} chunks for analysis")
                         
                         summary, coverage = generate_comprehensive_enhanced_summary(
-                            doc_chunks, api_key, selected_model
+                            doc_chunks, azure_endpoint, api_key, api_version, deployment_name
                         )
                         
                         st.session_state.summary = summary
