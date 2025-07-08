@@ -88,125 +88,64 @@ def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployme
     )
     
     prompt_template = ChatPromptTemplate.from_template("""
-    You are a specialized IRDAI regulatory document analyst with deep expertise in Indian insurance regulations. Create an ULTRA-COMPREHENSIVE, FORENSIC-LEVEL summary that captures EVERY regulatory detail, requirement, and nuance.
+    You are an expert document analyst. Your task is to create an EXHAUSTIVE, ENHANCED summary that captures EVERY important detail from the document.
 
-    CRITICAL REGULATORY EXTRACTION REQUIREMENTS:
+    CRITICAL EXTRACTION REQUIREMENTS:
+    1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
+    2. **CAPTURE COMPLETE DEFINITIONS**: Extract full definitions of technical terms, roles, and concepts
+    3. **DETAIL ALL PROCEDURES**: Include step-by-step processes, approval workflows, and operational requirements
+    4. **EXTRACT ORGANIZATIONAL DETAILS**: Committee structures, reporting relationships, roles, and responsibilities
+    5. **COMPLIANCE REQUIREMENTS**: All regulatory obligations, deadlines, reporting requirements, and penalties
+    6. **CONDITIONAL REQUIREMENTS**: Exceptions, special cases, and alternative procedures
 
-    1. **REGULATORY FRAMEWORK ANALYSIS**:
-       - Extract ALL regulatory references (circulars, notifications, guidelines)
-       - Identify ALL sections, sub-sections, clauses, and sub-clauses
-       - Capture ALL cross-references to other regulations
-       - Note ALL amendments, modifications, and updates
-       - Detail ALL effective dates, implementation timelines, and transition periods
+    ENHANCEMENT PROCESS:
+    - First pass: Extract all visible information systematically
+    - Second pass: Cross-reference and identify any missing details
+    - Third pass: Ensure all quantitative data and technical specifications are captured
+    - Final pass: Organize and structure for maximum clarity and completeness
 
-    2. **COMPLIANCE SPECIFICATIONS**:
-       - Extract ALL compliance requirements with exact wording
-       - Capture ALL numerical thresholds, limits, ratios, and percentages
-       - Detail ALL reporting obligations with frequencies and formats
-       - Note ALL penalties, sanctions, and enforcement actions
-       - Include ALL exceptions, exemptions, and special provisions
+    FORMATTING REQUIREMENTS:
+    - Use hierarchical structure with clear section headers
+    - Create comprehensive bullet points that preserve ALL details
+    - Use sub-bullets for related details and specifications
+    - Bold important terms, amounts, and requirements
+    - Preserve technical language and regulatory terminology
+    - Include exact quotes for critical requirements (in quotation marks)
 
-    3. **OPERATIONAL REQUIREMENTS**:
-       - Extract ALL procedural steps and approval processes
-       - Detail ALL documentation requirements and formats
-       - Capture ALL timelines, deadlines, and notice periods
-       - Note ALL roles, responsibilities, and authorities
-       - Include ALL governance and oversight requirements
+    For EVERY header and sub-header, provide:
+    1. **Section Overview**: Brief context and purpose
+    2. **Detailed Breakdown**: as many comprehensive bullet points as required
+    3. **Specific Requirements**: All conditions, criteria, and specifications
+    4. **Quantitative Elements**: Every number, percentage, amount, timeline
+    5. **Procedural Steps**: Complete workflows and processes
+    6. **Exceptions & Variations**: Alternative scenarios and special cases
+    7. **Compliance Aspects**: Regulatory requirements and deadlines
+    8. **Cross-References**: Links to other sections and dependencies
 
-    4. **FINANCIAL AND QUANTITATIVE DETAILS**:
-       - Extract ALL monetary amounts, capital requirements, and financial ratios
-       - Capture ALL percentage requirements and calculation methodologies
-       - Detail ALL investment limits, asset allocation rules, and restrictions
-       - Note ALL valuation methods and accounting treatments
-       - Include ALL risk management and solvency requirements
+    CONTENT ANALYSIS PRIORITIES:
+    1. **Quantitative Data**: Every number, percentage, amount, timeline, limit, or threshold
+    2. **Qualifications**: Required experience, skills, tenure, independence criteria
+    3. **Processes**: Approval steps, notification requirements, meeting procedures
+    4. **Compositions**: Committee sizes, member types, quorum requirements
+    5. **Timelines**: Deadlines, notice periods, tenure limits, meeting frequencies
+    6. **Authorities**: Who has what powers, approval rights, and responsibilities
+    7. **Exceptions**: Special circumstances, exemptions, alternative procedures
 
-    5. **ENTITY-SPECIFIC REQUIREMENTS**:
-       - Extract requirements for insurers, reinsurers, brokers, agents, and TPAs
-       - Detail licensing, registration, and authorization requirements
-       - Capture ownership, management, and operational criteria
-       - Note conduct of business rules and customer protection measures
-       - Include market conduct and fair practices requirements
+    EXAMPLE STRUCTURE (adapt to actual content):
+    **[Section Title from Document]**
+    
+    [Subsection]:
+    - Complete requirement with ALL specifications (include exact numbers/dates)
+        - Sub-requirement with precise details
+        - Additional specifications or conditions
+    - Next requirement with full technical details
+        - Related procedural steps
+        - Specific compliance obligations
 
-    6. **TECHNICAL AND ACTUARIAL SPECIFICATIONS**:
-       - Extract ALL technical reserves and liability calculations
-       - Detail ALL actuarial requirements and certification processes
-       - Capture ALL product approval and filing requirements
-       - Note ALL underwriting and claims settlement guidelines
-       - Include ALL risk assessment and management protocols
-
-    FORENSIC ENHANCEMENT PROCESS:
-    - **First Pass**: Systematic extraction of all visible regulatory elements
-    - **Second Pass**: Cross-referencing and context analysis for implied requirements
-    - **Third Pass**: Validation against IRDAI regulatory framework and terminology
-    - **Fourth Pass**: Integration of all quantitative data and technical specifications
-    - **Final Pass**: Comprehensive structuring with regulatory hierarchy preservation
-
-    SPECIALIZED FORMATTING FOR IRDAI DOCUMENTS:
-    - Use precise regulatory section numbering (e.g., "Section 3.2.1(a)(i)")
-    - Preserve exact regulatory language and terminology
-    - Create detailed sub-hierarchies for complex requirements
-    - Use regulatory-specific markers: [MANDATORY], [OPTIONAL], [CONDITIONAL]
-    - Include implementation phases: [IMMEDIATE], [PHASED], [TRANSITIONAL]
-    - Mark compliance levels: [MINIMUM], [ENHANCED], [BEST PRACTICE]
-
-    CRITICAL CONTENT CATEGORIES FOR IRDAI:
-
-    **REGULATORY AUTHORITY & SCOPE**
-    - Legal basis and statutory powers
-    - Applicability scope and entity coverage
-    - Jurisdictional boundaries and limitations
-
-    **LICENSING & REGISTRATION**
-    - Application procedures and documentation
-    - Eligibility criteria and qualification requirements
-    - Capital requirements and financial strength measures
-    - Fit and proper criteria for key personnel
-
-    **OPERATIONAL COMPLIANCE**
-    - Business conduct requirements
-    - Customer protection and grievance handling
-    - Market conduct and fair practices
-    - Anti-fraud and risk management measures
-
-    **FINANCIAL REGULATIONS**
-    - Capital adequacy and solvency requirements
-    - Investment guidelines and restrictions
-    - Accounting and reporting standards
-    - Audit and actuarial requirements
-
-    **PRODUCT & PRICING**
-    - Product approval and filing requirements
-    - Pricing guidelines and restrictions
-    - Policy terms and conditions standards
-    - Claims settlement procedures
-
-    **GOVERNANCE & OVERSIGHT**
-    - Board composition and responsibilities
-    - Risk management framework
-    - Internal audit and compliance functions
-    - Outsourcing guidelines and controls
-
-    EXAMPLE ENHANCED STRUCTURE:
-    **[REGULATION TITLE] - [EFFECTIVE DATE]**
-
-    **1. REGULATORY FRAMEWORK**
-    - **Legal Basis**: [Exact statutory reference]
-        - **Authority**: [Specific powers exercised]
-        - **Scope**: [Detailed applicability with entity types]
-        - **Enforcement**: [Penalties and sanctions with amounts]
-
-    **2. COMPLIANCE REQUIREMENTS** [MANDATORY]
-    - **Requirement 2.1**: [Exact requirement with all specifications]
-        - **Threshold**: [Precise numerical limits with units]
-        - **Timeline**: [Specific deadlines and implementation phases]
-        - **Documentation**: [Required formats and submission procedures]
-        - **Reporting**: [Frequency, format, and recipient details]
-        - **Exceptions**: [Specific conditions and alternative procedures]
-
-    Document content to analyze:
+    Document content:
     {context}
     
-    ULTRA-COMPREHENSIVE FORENSIC REGULATORY SUMMARY (capture EVERY specification with enhanced regulatory context):
+    CREATE DETAILED SUMMARY TO EXPLAIN ALL THE MINUTE DETAILS FROM THE CONTEXT:
     """)
     
     chain = create_stuff_documents_chain(llm, prompt_template)
