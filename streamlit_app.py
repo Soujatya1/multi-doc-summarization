@@ -227,7 +227,7 @@ def validate_summary_completeness(summary, original_chunks):
     
     return 1.0, set(), set()
 
-def generate_comprehensive_enhanced_summary(doc_chunks, api_key, model_name):
+def generate_comprehensive_enhanced_summary(doc_chunks, azure_endpoint, api_key, api_version, deployment_name):
     
     chain = create_enhanced_summary_chain(api_key, model_name)
     initial_summary = chain.invoke({"context": doc_chunks})
