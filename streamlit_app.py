@@ -77,7 +77,7 @@ def split_documents(documents, chunk_size=1500, chunk_overlap=500):
     )
     return text_splitter.split_documents(documents)
 
-def create_enhanced_summary_chain(api_key, model_name="gpt-4o"):
+def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployment_name, model_name="gpt-4o"):
     llm = AzureChatOpenAI(
         azure_endpoint=azure_endpoint,
         api_key=api_key,
@@ -229,7 +229,7 @@ def validate_summary_completeness(summary, original_chunks):
 
 def generate_comprehensive_enhanced_summary(doc_chunks, azure_endpoint, api_key, api_version, deployment_name):
     
-    chain = create_enhanced_summary_chain(api_key, model_name)
+    chain = create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployment_name)
     initial_summary = chain.invoke({"context": doc_chunks})
     
     coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
