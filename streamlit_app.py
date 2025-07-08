@@ -88,7 +88,7 @@ def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployme
     )
     
     prompt_template = ChatPromptTemplate.from_template("""
-    You are an expert document analyst. Your task is to create an EXHAUSTIVE, ENHANCED summary that captures EVERY important detail from the document.
+    You are an expert document analyst. Your task is to create an enhanced summary that captures EVERY important detail from the document.
 
     CRITICAL EXTRACTION REQUIREMENTS:
     1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
