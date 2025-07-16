@@ -127,7 +127,7 @@ def create_summary_chain(azure_endpoint, api_key, api_version, deployment_name, 
         max_tokens=4000
     )
     
-    prompt_template = ChatPromptTemplate.from_template("{prompt}")
+    prompt_template = ChatPromptTemplate.from_template("{context}")
     chain = create_stuff_documents_chain(llm, prompt_template)
     
     return chain
@@ -139,11 +139,14 @@ def generate_document_summary(doc_chunks, azure_endpoint, api_key, api_version, 
     # Get the custom prompt
     custom_prompt = get_summary_prompt(combined_text, page_count)
     
+    # Create a single document with the custom prompt as content
+    prompt_doc = Document(page_content=custom_prompt)
+    
     # Create the chain
     chain = create_summary_chain(azure_endpoint, api_key, api_version, deployment_name)
     
     # Generate summary
-    summary = chain.invoke({"prompt": custom_prompt})
+    summary = chain.invoke({"context": [prompt_doc]})
     
     return summary
 
