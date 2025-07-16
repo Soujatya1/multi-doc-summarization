@@ -136,7 +136,7 @@ Your task is to generate a **clean, concise, section-wise summary** of the input
 
 ### Guideline:
 
-Ensure that the **total summary length does not exceed ~50% of the English content pages** from the input document (total pages: {page_count}).
+Ensure that the **total summary length does not exceed ~50% of the English content pages** from the input document.
 
 Now, generate a section-wise structured summary of the document below:
 --------------------
