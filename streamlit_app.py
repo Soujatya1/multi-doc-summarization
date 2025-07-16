@@ -88,64 +88,62 @@ def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployme
     )
     
     prompt_template = ChatPromptTemplate.from_template("""
-    You are an expert document analyst. Your task is to create an enhanced summary that captures EVERY important detail from the document.
+    You are a domain expert in insurance compliance and regulation.
 
-    CRITICAL EXTRACTION REQUIREMENTS:
-    1. **PRESERVE EXACT SPECIFICATIONS**: Include ALL numbers, percentages, monetary amounts, dates, timeframes, and quantities EXACTLY as stated
-    2. **CAPTURE COMPLETE DEFINITIONS**: Extract full definitions of technical terms, roles, and concepts
-    3. **DETAIL ALL PROCEDURES**: Include step-by-step processes, approval workflows, and operational requirements
-    4. **EXTRACT ORGANIZATIONAL DETAILS**: Committee structures, reporting relationships, roles, and responsibilities
-    5. **COMPLIANCE REQUIREMENTS**: All regulatory obligations, deadlines, reporting requirements, and penalties
-    6. **CONDITIONAL REQUIREMENTS**: Exceptions, special cases, and alternative procedures
+Your task is to generate a **clean, concise, section-wise summary** of the input IRDAI/regulatory document while preserving the **original structure and flow** of the document.
 
-    ENHANCEMENT PROCESS:
-    - First pass: Extract all visible information systematically
-    - Second pass: Cross-reference and identify any missing details
-    - Third pass: Ensure all quantitative data and technical specifications are captured
-    - Final pass: Organize and structure for maximum clarity and completeness
+---
 
-    FORMATTING REQUIREMENTS:
-    - Use hierarchical structure with clear section headers
-    - Create comprehensive bullet points that preserve ALL details
-    - Use sub-bullets for related details and specifications
-    - Bold important terms, amounts, and requirements
-    - Preserve technical language and regulatory terminology
-    - Include exact quotes for critical requirements (in quotation marks)
+### Mandatory Summarization Rules:
 
-    For EVERY header and sub-header, provide:
-    1. **Section Overview**: Brief context and purpose
-    2. **Detailed Breakdown**: as many comprehensive bullet points as required
-    3. **Specific Requirements**: All conditions, criteria, and specifications
-    4. **Quantitative Elements**: Every number, percentage, amount, timeline
-    5. **Procedural Steps**: Complete workflows and processes
-    6. **Exceptions & Variations**: Alternative scenarios and special cases
-    7. **Compliance Aspects**: Regulatory requirements and deadlines
-    8. **Cross-References**: Links to other sections and dependencies
+1. **Follow the original structure strictly** — maintain the same order of:
+   - Section headings
+   - Subheadings
+   - Bullet points
+   - Tables
+   - Date-wise event history
+   - UIDAI / IRDAI / eGazette circulars
 
-    CONTENT ANALYSIS PRIORITIES:
-    1. **Quantitative Data**: Every number, percentage, amount, timeline, limit, or threshold
-    2. **Qualifications**: Required experience, skills, tenure, independence criteria
-    3. **Processes**: Approval steps, notification requirements, meeting procedures
-    4. **Compositions**: Committee sizes, member types, quorum requirements
-    5. **Timelines**: Deadlines, notice periods, tenure limits, meeting frequencies
-    6. **Authorities**: Who has what powers, approval rights, and responsibilities
-    7. **Exceptions**: Special circumstances, exemptions, alternative procedures
+2. **Do NOT rename or reformat section titles** — retain the exact headings from the original file.
 
-    EXAMPLE STRUCTURE (adapt to actual content):
-    **[Section Title from Document]**
-    
-    [Subsection]:
-    - Complete requirement with ALL specifications (include exact numbers/dates)
-        - Sub-requirement with precise details
-        - Additional specifications or conditions
-    - Next requirement with full technical details
-        - Related procedural steps
-        - Specific compliance obligations
+3. **Each section should be summarized in 1–5 lines**, proportional to its original length:
+   - Keep it brief, but **do not omit the core message**.
+   - Avoid generalizations or overly descriptive rewriting.
+
+4. If a section contains **definitions**, summarize them line by line (e.g., Definition A: …).
+
+5. If the section contains **tabular data**, preserve **column-wise details**:
+   - Include every row and column in a concise bullet or structured format.
+   - Do not merge or generalize rows — maintain data fidelity.
+
+6. If a section contains **violations, fines, or penalties**, mention each item clearly:
+   - List out exact violation titles and actions taken or proposed.
+
+7. For **date-wise circulars or history**, ensure that:
+   - **No dates are skipped or merged.**
+   - Maintain **chronological order**.
+   - Mention full references such as "IRDAI Circular dated 12-May-2022".
+
+---
+
+### Output Format:
+
+- Follow the exact **order and structure** of the input file.
+- Do **not invent new headings** or sections.
+- Avoid decorative formatting, markdown, or unnecessary bolding — use **clean plain text**.
+
+---
+
+### Guideline:
+
+Ensure that the **total summary length does not exceed ~50% of the English content pages** from the input document (total pages: {page_count}).
+
+Now, generate a section-wise structured summary of the document below:
+--------------------
 
     Document content:
     {context}
     
-    CREATE DETAILED SUMMARY TO EXPLAIN ALL THE MINUTE DETAILS FROM THE CONTEXT:
     """)
     
     chain = create_stuff_documents_chain(llm, prompt_template)
