@@ -77,7 +77,47 @@ def split_documents(documents, chunk_size=1500, chunk_overlap=500):
     )
     return text_splitter.split_documents(documents)
 
-def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployment_name, model_name="gpt-4o"):
+def get_summary_prompt(text, page_count):
+    return f"""
+You are a domain expert in insurance compliance and regulation.
+Your task is to generate a **clean, concise, section-wise summary** of the input IRDAI/regulatory document while preserving the **original structure and flow** of the document.
+---
+### Mandatory Summarization Rules:
+1. **Follow the original structure strictly** — maintain the same order of:
+   - Section headings
+   - Subheadings
+   - Bullet points
+   - Tables
+   - Date-wise event history
+   - UIDAI / IRDAI / eGazette circulars
+2. **Do NOT rename or reformat section titles** — retain the exact headings from the original file.
+3. **Each section should be summarized in 1–5 lines**, proportional to its original length:
+   - Keep it brief, but **do not omit the core message**.
+   - Avoid generalizations or overly descriptive rewriting.
+4. If a section contains **definitions**, summarize them line by line (e.g., Definition A: …).
+5. If the section contains **tabular data**, preserve **column-wise details**:
+   - Include every row and column in a concise bullet or structured format.
+   - Do not merge or generalize rows — maintain data fidelity.
+6. If a section contains **violations, fines, or penalties**, mention each item clearly:
+   - List out exact violation titles and actions taken or proposed.
+7. For **date-wise circulars or history**, ensure that:
+   - **No dates are skipped or merged.**
+   - Maintain **chronological order**.
+   - Mention full references such as "IRDAI Circular dated 12-May-2022".
+---
+### Output Format:
+- Follow the exact **order and structure** of the input file.
+- Do **not invent new headings** or sections.
+- Avoid decorative formatting, markdown, or unnecessary bolding — use **clean plain text**.
+---
+### Guideline:
+Ensure that the **total summary length does not exceed ~50% of the English content pages** from the input document (total pages: {page_count}).
+Now, generate a section-wise structured summary of the document below:
+--------------------
+{text}
+"""
+
+def create_summary_chain(azure_endpoint, api_key, api_version, deployment_name, model_name="gpt-4o"):
     llm = AzureChatOpenAI(
         azure_endpoint=azure_endpoint,
         api_key=api_key,
@@ -87,146 +127,25 @@ def create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployme
         max_tokens=4000
     )
     
-    prompt_template = ChatPromptTemplate.from_template("""
-    You are a domain expert in insurance compliance and regulation.
-
-Your task is to generate a **clean, concise, section-wise summary** of the input IRDAI/regulatory document while preserving the **original structure and flow** of the document.
-
----
-
-### Mandatory Summarization Rules:
-
-1. **Follow the original structure strictly** — maintain the same order of:
-   - Section headings
-   - Subheadings
-   - Bullet points
-   - Tables
-   - Date-wise event history
-   - UIDAI / IRDAI / eGazette circulars
-
-2. **Do NOT rename or reformat section titles** — retain the exact headings from the original file.
-
-3. **Each section should be summarized in 1–5 lines**, proportional to its original length:
-   - Keep it brief, but **do not omit the core message**.
-   - Avoid generalizations or overly descriptive rewriting.
-
-4. If a section contains **definitions**, summarize them line by line (e.g., Definition A: …).
-
-5. If the section contains **tabular data**, preserve **column-wise details**:
-   - Include every row and column in a concise bullet or structured format.
-   - Do not merge or generalize rows — maintain data fidelity.
-
-6. If a section contains **violations, fines, or penalties**, mention each item clearly:
-   - List out exact violation titles and actions taken or proposed.
-
-7. For **date-wise circulars or history**, ensure that:
-   - **No dates are skipped or merged.**
-   - Maintain **chronological order**.
-   - Mention full references such as "IRDAI Circular dated 12-May-2022".
-
----
-
-### Output Format:
-
-- Follow the exact **order and structure** of the input file.
-- Do **not invent new headings** or sections.
-- Avoid decorative formatting, markdown, or unnecessary bolding — use **clean plain text**.
-
----
-
-### Guideline:
-
-Ensure that the **total summary length does not exceed ~50% of the English content pages** from the input document.
-
-Now, generate a section-wise structured summary of the document below:
---------------------
-
-    Document content:
-    {context}
-    
-    """)
-    
+    prompt_template = ChatPromptTemplate.from_template("{prompt}")
     chain = create_stuff_documents_chain(llm, prompt_template)
     
     return chain
 
-def validate_summary_completeness(summary, original_chunks):
-    original_numbers = set()
-    for chunk in original_chunks:
-        numbers = re.findall(r'\b\d+(?:\.\d+)?%?\b', chunk.page_content)
-        original_numbers.update(numbers)
+def generate_document_summary(doc_chunks, azure_endpoint, api_key, api_version, deployment_name, page_count):
+    # Combine all chunks into a single text
+    combined_text = "\n\n".join([chunk.page_content for chunk in doc_chunks])
     
-    summary_numbers = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', summary))
+    # Get the custom prompt
+    custom_prompt = get_summary_prompt(combined_text, page_count)
     
-    if original_numbers:
-        coverage = len(summary_numbers.intersection(original_numbers)) / len(original_numbers)
-        return coverage, original_numbers, summary_numbers
+    # Create the chain
+    chain = create_summary_chain(azure_endpoint, api_key, api_version, deployment_name)
     
-    return 1.0, set(), set()
-
-def generate_comprehensive_enhanced_summary(doc_chunks, azure_endpoint, api_key, api_version, deployment_name):
+    # Generate summary
+    summary = chain.invoke({"prompt": custom_prompt})
     
-    chain = create_enhanced_summary_chain(azure_endpoint, api_key, api_version, deployment_name)
-    initial_summary = chain.invoke({"context": doc_chunks})
-    
-    coverage, orig_numbers, summ_numbers = validate_summary_completeness(initial_summary, doc_chunks)
-    
-    if coverage < 0.8:        
-        llm = AzureChatOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_key=api_key,
-            api_version=api_version,
-            deployment_name=deployment_name,
-            temperature=0.1)
-        
-        enhancement_prompt = ChatPromptTemplate.from_template("""
-        Review the following summary against the original document chunks to identify and add any missing critical details.
-        
-        MISSING DETAILS ANALYSIS:
-        Original numbers found: {orig_numbers}
-        Summary numbers captured: {summ_numbers}
-        Coverage: {coverage:.1%}
-        
-        ENHANCEMENT INSTRUCTIONS:
-        1. Identify all missing quantitative data from the original document
-        2. Add any missing specifications, procedures, or requirements
-        3. Ensure all technical definitions are complete
-        4. Verify all organizational details are captured
-        5. Cross-reference to eliminate any gaps
-        
-        Original Summary:
-        {summary}
-        
-        Original Document Chunks (for reference):
-        {chunks}
-        
-        ENHANCED COMPREHENSIVE SUMMARY with ALL missing details integrated:
-        """)
-        
-        combined_chunks = "\n\n".join([chunk.page_content for chunk in doc_chunks[:8]])
-        
-        try:
-            enhanced_summary = llm.invoke(enhancement_prompt.format(
-                summary=initial_summary,
-                chunks=combined_chunks,
-                orig_numbers=list(orig_numbers),
-                summ_numbers=list(summ_numbers),
-                coverage=coverage
-            ))
-            
-            final_coverage, _, _ = validate_summary_completeness(enhanced_summary.content, doc_chunks)
-            
-            st.success(f"✅ Enhancement complete! Coverage improved from {coverage:.1%} to {final_coverage:.1%}")
-            
-            return enhanced_summary.content, final_coverage
-            
-        except Exception as e:
-            st.warning(f"Enhancement failed: {e}. Using initial summary.")
-            return initial_summary, coverage
-    
-    else:
-        st.success(f"✅ Initial summary achieved {coverage:.1%} coverage - enhancement not needed")
-        return initial_summary, coverage
+    return summary
 
 def parse_structured_summary(summary_text):
     lines = summary_text.strip().split('\n')
@@ -414,13 +333,13 @@ def create_detailed_pdf_summary(structured_summary, original_filename, raw_summa
 
 def main():
     st.set_page_config(
-        page_title="Enhanced Document Summarizer",
+        page_title="IRDAI Document Summarizer",
         page_icon="📋",
         layout="wide"
     )
     
-    st.title("📋 Enhanced Detailed Document Summarizer")
-    st.markdown("Generate comprehensive, enhanced summaries that capture EVERY important detail!")
+    st.title("📋 IRDAI Document Summarizer")
+    st.markdown("Generate clean, section-wise summaries of IRDAI regulatory documents!")
     
     with st.sidebar:
         st.header("⚙️ Azure OpenAI Configuration")
@@ -468,36 +387,36 @@ def main():
             st.info(f"📊 File size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
     
     with col2:
-        st.header("🚀 Generate Enhanced Summary")
+        st.header("🚀 Generate Summary")
         
-        if st.button("🔄 Generate Comprehensive Enhanced Summary", type="primary", disabled=not (uploaded_file and api_key)):
+        if st.button("🔄 Generate Summary", type="primary", disabled=not (uploaded_file and api_key)):
             if not api_key:
                 st.error("❌ Please enter your OpenAI API key in the sidebar.")
             elif not uploaded_file:
                 st.error("❌ Please upload a document first.")
             else:
-                with st.spinner("🔍 Analyzing document and generating comprehensive enhanced summary..."):
+                with st.spinner("🔍 Analyzing document and generating summary..."):
                     try:
                         documents = load_document(uploaded_file)
                         if documents is None:
                             st.stop()
                         
                         total_content = sum(len(doc.page_content) for doc in documents)
-                        st.info(f"📄 Document loaded: {len(documents)} pages, {total_content:,} characters")
+                        page_count = len(documents)
+                        st.info(f"📄 Document loaded: {page_count} pages, {total_content:,} characters")
                         
                         doc_chunks = split_documents(documents, chunk_size=1500, chunk_overlap=500)
                         st.info(f"📑 Document processed into {len(doc_chunks)} chunks for analysis")
                         
-                        summary, coverage = generate_comprehensive_enhanced_summary(
-                            doc_chunks, azure_endpoint, api_key, api_version, deployment_name
+                        summary = generate_document_summary(
+                            doc_chunks, azure_endpoint, api_key, api_version, deployment_name, page_count
                         )
                         
                         st.session_state.summary = summary
                         st.session_state.filename = uploaded_file.name
                         st.session_state.structured_summary = parse_structured_summary(summary)
-                        st.session_state.coverage = coverage
                         
-                        st.success("✅ Comprehensive enhanced summary generated successfully!")
+                        st.success("✅ Summary generated successfully!")
                         st.balloons()
                         
                     except Exception as e:
@@ -505,7 +424,7 @@ def main():
                         st.exception(e)
     
     if hasattr(st.session_state, 'summary') and st.session_state.summary:
-        st.header("📋 Generated Enhanced Summary")
+        st.header("📋 Generated Summary")
         
         if st.session_state.structured_summary:
             for i, section in enumerate(st.session_state.structured_summary):
@@ -540,7 +459,7 @@ def main():
         
         with col1:
             if st.button("🔧 Generate PDF", type="secondary"):
-                with st.spinner("📝 Creating enhanced PDF summary..."):
+                with st.spinner("📝 Creating PDF summary..."):
                     try:
                         pdf_buffer = create_detailed_pdf_summary(
                             st.session_state.structured_summary,
@@ -557,7 +476,7 @@ def main():
                 st.download_button(
                     label="⬇️ Download PDF Summary",
                     data=st.session_state.pdf_buffer,
-                    file_name=f"enhanced_summary_{st.session_state.filename.split('.')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    file_name=f"summary_{st.session_state.filename.split('.')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                     mime="application/pdf"
                 )
 
